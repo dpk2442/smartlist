@@ -1,3 +1,11 @@
+# Python files
 /venv
 __pycache__
+
+# Config
 /config.ini
+
+# Code coverage
+/.coverage
+/htmlcov
+/test_report.html
