@@ -60,18 +60,24 @@ class TestLoginCallback(object):
             None, mock_session, "home_route", "artists_route", None, None, None, None)
         assert resp.status == 307
         assert resp.location == "home_route"
+        assert mock_session.pop_flashes() == [dict(
+            type="error", msg="Encountered an error logging in.")]
 
     async def test_error(self, mock_session):
         resp = await smartlist.actions.login_callback(
             None, mock_session, "home_route", "artists_route", None, "state", "error", None)
         assert resp.status == 307
         assert resp.location == "home_route"
+        assert mock_session.pop_flashes() == [dict(
+            type="error", msg="Encountered an error logging in.")]
 
     async def test_missing_code(self, mock_session):
         resp = await smartlist.actions.login_callback(
             None, mock_session, "home_route", "artists_route", None, "state", None, None)
         assert resp.status == 307
         assert resp.location == "home_route"
+        assert mock_session.pop_flashes() == [dict(
+            type="error", msg="Encountered an error logging in.")]
 
     async def test_success(self, monkeypatch, mock_session, mock_client_session_constructor):
         mock_config = unittest.mock.Mock()
@@ -164,6 +170,8 @@ class TestLoginCallback(object):
             ))
         mock_client_session.get.assert_not_called()
         post_token_response.json.assert_not_called()
+        assert mock_session.pop_flashes() == [dict(
+            type="error", msg="Encountered an error logging in.")]
 
     async def test_get_fails(self, mock_session, mock_client_session_constructor):
         mock_config = unittest.mock.Mock()
@@ -204,6 +212,8 @@ class TestLoginCallback(object):
         )
         post_token_response.json.assert_called_once_with()
         get_profile_response.json.assert_not_called()
+        assert mock_session.pop_flashes() == [dict(
+            type="error", msg="Encountered an error logging in.")]
 
 
 def test_logout():

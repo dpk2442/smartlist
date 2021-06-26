@@ -10,6 +10,16 @@ def test_session_constructor():
     assert session._session == "mock_input"
 
 
+def test_flash():
+    session = smartlist.session.Session({})
+
+    assert session.pop_flashes() == []
+    session.add_flash("f1")
+    session.add_flash("f2")
+    assert session.pop_flashes() == ["f1", "f2"]
+    assert session.pop_flashes() == []
+
+
 @pytest.mark.parametrize("attr", ["auth_state", "user_info"])
 def test_properties(attr):
     session = smartlist.session.Session({})

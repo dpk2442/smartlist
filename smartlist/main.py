@@ -33,7 +33,8 @@ def init_logging():
 
 async def load_session_context_processor(request):
     return {
-        "session": request["session"]
+        "session": request["session"],
+        "flashes": request["session"].pop_flashes(),
     }
 
 

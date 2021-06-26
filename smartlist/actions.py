@@ -46,14 +46,17 @@ async def login_callback(
     del session.auth_state
     if state != session_state:
         logger.error("Invalid state found")
+        session.add_flash(dict(type="error", msg="Encountered an error logging in."))
         return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
     if error is not None:
         logger.error("Authentication request failed")
+        session.add_flash(dict(type="error", msg="Encountered an error logging in."))
         return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
     if code is None:
         logger.error("Code not present")
+        session.add_flash(dict(type="error", msg="Encountered an error logging in."))
         return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
     async with aiohttp.ClientSession() as client_session:
@@ -69,6 +72,7 @@ async def login_callback(
                 "https://accounts.spotify.com/api/token", data=token_parameters) as resp:
             if resp.status != 200:
                 logger.error("Error getting token, received status {}".format(resp.status))
+                session.add_flash(dict(type="error", msg="Encountered an error logging in."))
                 return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
             auth_data = await resp.json()
@@ -79,6 +83,7 @@ async def login_callback(
         async with client_session.get("https://api.spotify.com/v1/me", headers=headers) as resp:
             if resp.status != 200:
                 logger.error("Error getting profile, received status {}".format(resp.status))
+                session.add_flash(dict(type="error", msg="Encountered an error logging in."))
                 return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
             profile_data = await resp.json()

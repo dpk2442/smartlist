@@ -7,6 +7,20 @@ class Session(object):
     def __init__(self, session):
         self._session = session
 
+    def add_flash(self, flash):
+        if "flash" not in self._session:
+            self._session["flash"] = []
+
+        self._session["flash"].append(flash)
+
+    def pop_flashes(self):
+        if "flash" not in self._session:
+            return []
+
+        flashes = self._session["flash"]
+        del self._session["flash"]
+        return flashes
+
     @property
     def auth_state(self):
         if "auth_state" not in self._session:

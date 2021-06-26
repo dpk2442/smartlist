@@ -6,6 +6,14 @@
 <body>
     <h1>SmartList</h1>
 
+    {% if flashes|length > 0 %}
+    <div class="flash">
+        {% for flash in flashes %}
+        <p class="{{ flash['type'] }}">{{ flash["msg"] }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
 </body>
 </html>
