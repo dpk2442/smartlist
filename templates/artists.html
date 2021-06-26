@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <p>This page will list the user's saved artists</p>
+
+    <p><a href="{{ url('logout') }}">Logout</a></p>
+
+    <pre><code>
+        {{ session }}
+    </code></pre>
+{% endblock %}

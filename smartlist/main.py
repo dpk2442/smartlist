@@ -1,12 +1,16 @@
+import base64
 import configparser
 import logging
 import os
 
 import aiohttp
 import aiohttp_jinja2
+import aiohttp_session
+import aiohttp_session.cookie_storage
 import jinja2
 
 import smartlist.handlers
+import smartlist.session
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,18 @@ def init_logging():
     ch.setFormatter(formatter)
 
     root_logger.addHandler(ch)
+
+
+async def load_session_context_processor(request):
+    return {
+        "session": request["session"]
+    }
+
+
+@aiohttp.web.middleware
+async def session_loading_middleware(request, handler):
+    request["session"] = await smartlist.session.get_session(request)
+    return await handler(request)
 
 
 def main():
@@ -47,9 +63,15 @@ def main():
     app["config"] = config
     app.router.add_routes(smartlist.handlers.routes)
 
+    secret_key = base64.urlsafe_b64decode(config.get("session", "secret_key"))
+    aiohttp_session.setup(app, aiohttp_session.cookie_storage.EncryptedCookieStorage(secret_key))
+
+    app.middlewares.append(session_loading_middleware)
+
     aiohttp_jinja2.setup(
         app,
-        loader=jinja2.FileSystemLoader(template_path))
+        loader=jinja2.FileSystemLoader(template_path),
+        context_processors=[load_session_context_processor])
 
     host = config.get("web", "host", fallback="127.0.0.1")
     port = config.getint("web", "port", fallback=7578)

@@ -1,22 +1,36 @@
 import configparser
+import datetime
 import logging
 import urllib.parse
+import secrets
 
 import aiohttp
 import aiohttp.web
+
+import smartlist.session
 
 
 logger = logging.getLogger(__name__)
 
 
-def login(config: configparser.ConfigParser, login_callback_route: str):
+def get_home(session: smartlist.session.Session, artists_route: str):
+    if session.user_info is not None:
+        return aiohttp.web.HTTPTemporaryRedirect(artists_route)
+
+
+def login(
+        config: configparser.ConfigParser,
+        session: smartlist.session.Session,
+        login_callback_route: str):
+    state = secrets.token_urlsafe()
+    session.auth_state = state
     return aiohttp.web.HTTPTemporaryRedirect(
         "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(dict(
             client_id=config.get("auth", "client_id"),
             response_type="code",
             redirect_uri=urllib.parse.urljoin(
                 config.get("auth", "callback_base_url"), login_callback_route),
-            state="test",
+            state=state,
             scope="",
         )),
     )
@@ -24,9 +38,13 @@ def login(config: configparser.ConfigParser, login_callback_route: str):
 
 async def login_callback(
         config: configparser.ConfigParser,
-        home_route: str, login_callback_route: str,
+        session: smartlist.session.Session,
+        home_route: str, artists_route: str,
+        login_callback_route: str,
         state: str, error: str, code: str):
-    if state != "test":
+    session_state = session.auth_state
+    del session.auth_state
+    if state != session_state:
         logger.error("Invalid state found")
         return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
@@ -65,7 +83,17 @@ async def login_callback(
 
             profile_data = await resp.json()
 
-        return aiohttp.web.json_response(dict(
-            auth_data=auth_data,
-            profile_data=profile_data,
-        ))
+        now = datetime.datetime.utcnow()
+        now += datetime.timedelta(seconds=auth_data["expires_in"])
+        session.user_info = dict(
+            user_id=profile_data["uri"],
+            access_token=auth_data["access_token"],
+            access_token_expiry="{}Z".format(now.isoformat()),
+        )
+
+        return aiohttp.web.HTTPTemporaryRedirect(artists_route)
+
+
+def logout(session: smartlist.session.Session, home_route: str):
+    del session.user_info
+    return aiohttp.web.HTTPTemporaryRedirect(home_route)
