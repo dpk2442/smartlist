@@ -9,6 +9,7 @@ import aiohttp_session
 import aiohttp_session.cookie_storage
 import jinja2
 
+import smartlist.db
 import smartlist.handlers
 import smartlist.session
 
@@ -62,6 +63,7 @@ def main():
 
     app = aiohttp.web.Application()
     app["config"] = config
+    app["db"] = smartlist.db.init_db(root_path, config)
     app.router.add_routes(smartlist.handlers.routes)
 
     secret_key = base64.urlsafe_b64decode(config.get("session", "secret_key"))

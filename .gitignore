@@ -2,8 +2,9 @@
 /venv
 __pycache__
 
-# Config
+# App files
 /config.ini
+/data.sqlite3
 
 # Code coverage
 /.coverage

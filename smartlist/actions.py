@@ -7,6 +7,7 @@ import secrets
 import aiohttp
 import aiohttp.web
 
+import smartlist.db
 import smartlist.session
 
 
@@ -38,6 +39,7 @@ def login(
 
 async def login_callback(
         config: configparser.ConfigParser,
+        db: smartlist.db.SmartListDB,
         session: smartlist.session.Session,
         home_route: str, artists_route: str,
         login_callback_route: str,
@@ -95,6 +97,7 @@ async def login_callback(
             access_token=auth_data["access_token"],
             access_token_expiry="{}Z".format(now.isoformat()),
         )
+        db.upsert_user(profile_data["uri"], auth_data["refresh_token"])
 
         return aiohttp.web.HTTPTemporaryRedirect(artists_route)
 

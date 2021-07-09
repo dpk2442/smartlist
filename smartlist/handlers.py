@@ -44,6 +44,7 @@ def login(request: aiohttp.web.Request):
 async def login_callback(request: aiohttp.web.Request):
     return await smartlist.actions.login_callback(
         request.app["config"],
+        request.app["db"],
         request["session"],
         str(request.app.router["home"].url_for()),
         str(request.app.router["artists"].url_for()),
