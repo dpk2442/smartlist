@@ -4,6 +4,7 @@ import logging
 import os
 
 import aiohttp
+import aiohttp.web
 import aiohttp_jinja2
 import aiohttp_session
 import aiohttp_session.cookie_storage
@@ -11,6 +12,7 @@ import jinja2
 
 import smartlist.db
 import smartlist.handlers
+import smartlist.middleware
 import smartlist.session
 
 
@@ -39,12 +41,6 @@ async def load_session_context_processor(request):
     }
 
 
-@aiohttp.web.middleware
-async def session_loading_middleware(request, handler):
-    request["session"] = await smartlist.session.get_session(request)
-    return await handler(request)
-
-
 def main():
     init_logging()
 
@@ -69,7 +65,9 @@ def main():
     secret_key = base64.urlsafe_b64decode(config.get("session", "secret_key"))
     aiohttp_session.setup(app, aiohttp_session.cookie_storage.EncryptedCookieStorage(secret_key))
 
-    app.middlewares.append(session_loading_middleware)
+    app.middlewares.extend([
+        smartlist.middleware.load_session,
+    ])
 
     aiohttp_jinja2.setup(
         app,
