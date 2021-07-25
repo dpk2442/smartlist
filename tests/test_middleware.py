@@ -30,7 +30,8 @@ async def test_load_session(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.asyncio
-async def test_inject_client(monkeypatch: pytest.MonkeyPatch, mock_session: unittest.mock.AsyncMock):
+async def test_inject_client(monkeypatch: pytest.MonkeyPatch,
+                             mock_session: unittest.mock.AsyncMock):
     mock_spotify_client_constructor = unittest.mock.Mock()
     mock_spotify_client_constructor.return_value.close = unittest.mock.AsyncMock()
     monkeypatch.setattr("smartlist.middleware.smartlist.client.SpotifyClient",

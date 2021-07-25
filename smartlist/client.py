@@ -26,7 +26,10 @@ class SpotifyApiException(Exception):
 
 class SpotifyClient(object):
 
-    def __init__(self, config: configparser.ConfigParser, db: smartlist.db.SmartListDB, session: smartlist.session.Session):
+    def __init__(self,
+                 config: configparser.ConfigParser,
+                 db: smartlist.db.SmartListDB,
+                 session: smartlist.session.Session):
         self._request_session = session
         self._config = config
         self._db = db

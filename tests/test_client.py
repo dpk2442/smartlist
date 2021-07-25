@@ -40,7 +40,8 @@ def test_get_client_session(monkeypatch: pytest.MonkeyPatch):
     mock_session_constructor.assert_called_once_with()
 
 
-def test_is_access_token_expired(monkeypatch: pytest.MonkeyPatch, client: smartlist.client.SpotifyClient):
+def test_is_access_token_expired(monkeypatch: pytest.MonkeyPatch,
+                                 client: smartlist.client.SpotifyClient):
     now = datetime.datetime.now(datetime.timezone.utc)
     mock_datetime = unittest.mock.Mock()
     mock_datetime.now.return_value = now
@@ -68,7 +69,10 @@ def test_is_access_token_expired(monkeypatch: pytest.MonkeyPatch, client: smartl
 @pytest.mark.asyncio
 class TestRefreshToken(object):
 
-    async def _test_success(self, include_refresh_token: bool, monkeypatch: pytest.MonkeyPatch, client: smartlist.client.SpotifyClient):
+    async def _test_success(self,
+                            include_refresh_token: bool,
+                            monkeypatch: pytest.MonkeyPatch,
+                            client: smartlist.client.SpotifyClient):
         mock_response = unittest.mock.AsyncMock()
         mock_response.status = 200
         mock_response.json.return_value = dict(
@@ -120,10 +124,14 @@ class TestRefreshToken(object):
             access_token_expiry=expected_expiry_time,
         )
 
-    async def test_success_with_new_refresh_token(self, monkeypatch: pytest.MonkeyPatch, client: smartlist.client.SpotifyClient):
+    async def test_success_with_new_refresh_token(self,
+                                                  monkeypatch: pytest.MonkeyPatch,
+                                                  client: smartlist.client.SpotifyClient):
         await self._test_success(True, monkeypatch, client)
 
-    async def test_success_without_new_refresh_token(self, monkeypatch: pytest.MonkeyPatch, client: smartlist.client.SpotifyClient):
+    async def test_success_without_new_refresh_token(self,
+                                                     monkeypatch: pytest.MonkeyPatch,
+                                                     client: smartlist.client.SpotifyClient):
         await self._test_success(False, monkeypatch, client)
 
     async def test_failed_response(self, client: smartlist.client.SpotifyClient):
@@ -137,7 +145,8 @@ class TestRefreshToken(object):
             user_id="user_id",
         )
 
-        with pytest.raises(smartlist.client.SpotifyAuthorizationException, match="Unable to refresh token, status code"):
+        with pytest.raises(smartlist.client.SpotifyAuthorizationException,
+                           match="Unable to refresh token, status code"):
             await client._refresh_token()
 
         client._client_session.post.assert_called_once_with(
@@ -157,7 +166,7 @@ class TestRefreshToken(object):
 class TestMakeApiCall(object):
 
     @pytest.fixture
-    def mocked_client(self, client: smartlist.client.SpotifyClient) -> smartlist.client.SpotifyClient:
+    def mocked_client(self, client: smartlist.client.SpotifyClient):
         client._client_session = unittest.mock.MagicMock()
         client._request_session.user_info = dict(
             access_token="token",
