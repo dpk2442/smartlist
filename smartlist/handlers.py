@@ -27,9 +27,17 @@ def get_home(request: aiohttp.web.Request):
 
 @routes.get("/artists", name="artists")
 @require_auth
-@aiohttp_jinja2.template("artists.html")
-def get_artists(request: aiohttp.web.Request):
-    return smartlist.actions.get_artists(
+async def get_artists(request: aiohttp.web.Request):
+    return aiohttp.web.HTTPTemporaryRedirect(
+        request.app.router["edit_artists"].url_for(),
+    )
+
+
+@routes.get("/artists/edit", name="edit_artists")
+@require_auth
+@aiohttp_jinja2.template("artists_edit.html")
+async def get_artists_edit(request: aiohttp.web.Request):
+    return await smartlist.actions.get_artists(
         request["client"],
     )
 
