@@ -12,6 +12,11 @@ class SmartListDB(object):
     def __init__(self, conn: sqlite3.Connection):
         self._conn = conn
 
+    def get_refresh_token(self, user_id):
+        with self._conn as conn:
+            cur = conn.execute("SELECT refresh_token FROM users WHERE user_id = ?", (user_id,))
+            return cur.fetchone()[0]
+
     def upsert_user(self, user_id, refresh_token):
         with self._conn as conn:
             conn.execute("""

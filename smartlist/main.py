@@ -67,6 +67,7 @@ def main():
 
     app.middlewares.extend([
         smartlist.middleware.load_session,
+        smartlist.middleware.inject_client,
     ])
 
     aiohttp_jinja2.setup(

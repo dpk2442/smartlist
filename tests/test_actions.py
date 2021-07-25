@@ -18,6 +18,18 @@ def test_get_home():
     assert resp.location == "artists_route"
 
 
+@pytest.mark.asyncio
+async def test_get_artists():
+    client = unittest.mock.AsyncMock()
+    client.get_followed_artists.return_value = "artists"
+
+    resp = await smartlist.actions.get_artists(client)
+
+    assert resp == dict(
+        artists="artists",
+    )
+
+
 def test_login():
     config = unittest.mock.Mock()
     config.get.side_effect = ["client_id", "http://base_url"]
@@ -29,8 +41,9 @@ def test_login():
     assert resp.status == 307
     assert resp.location == (
         "https://accounts.spotify.com/authorize?client_id=client_id&response_type=code&" +
-        "redirect_uri=http%3A%2F%2Fbase_url%2Flogin_callback&state={}&scope=".format(
-            session.auth_state)
+        "redirect_uri=http%3A%2F%2Fbase_url%2Flogin_callback&state={}&scope={}".format(
+            session.auth_state,
+            "user-follow-read")
     )
     config.get.assert_has_calls((
         unittest.mock.call("auth", "client_id"),
@@ -85,9 +98,9 @@ class TestLoginCallback(object):
 
         mock_db = unittest.mock.Mock()
 
-        utcnow = datetime.datetime.utcnow()
+        utcnow = datetime.datetime.now(datetime.timezone.utc)
         mock_datetime_datetime = unittest.mock.Mock()
-        mock_datetime_datetime.utcnow.return_value = utcnow
+        mock_datetime_datetime.now.return_value = utcnow
         monkeypatch.setattr("smartlist.actions.datetime.datetime", mock_datetime_datetime)
 
         mock_client_session = mock_client_session_constructor.return_value.__aenter__.return_value
@@ -138,11 +151,11 @@ class TestLoginCallback(object):
             user_info=dict(
                 user_id="spotify:user:user_id",
                 access_token="access_token",
-                access_token_expiry="{}Z".format(expiry.isoformat()),
+                access_token_expiry=expiry.isoformat(),
             ),
         )
         mock_db.upsert_user.assert_called_once_with("spotify:user:user_id", "refresh_token")
-        mock_datetime_datetime.utcnow.assert_called_once_with()
+        mock_datetime_datetime.now.assert_called_once_with(datetime.timezone.utc)
 
     async def test_post_fail(self, mock_session, mock_client_session_constructor):
         mock_config = unittest.mock.Mock()

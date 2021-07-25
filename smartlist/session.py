@@ -57,6 +57,27 @@ class Session(object):
 
         del self._session["user_info"]
 
+    @property
+    def user_id(self):
+        if self.user_info is None or "user_id" not in self.user_info:
+            return None
+
+        return self.user_info["user_id"]
+
+    @property
+    def access_token(self):
+        if self.user_info is None or "access_token" not in self.user_info:
+            return None
+
+        return self.user_info["access_token"]
+
+    @property
+    def access_token_expiry(self):
+        if self.user_info is None or "access_token_expiry" not in self.user_info:
+            return None
+
+        return self.user_info["access_token_expiry"]
+
     def __repr__(self) -> str:  # pragma: no cover
         return repr(self._session)
 

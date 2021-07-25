@@ -1,6 +1,7 @@
 import aiohttp.web
 import aiohttp_jinja2
 
+import smartlist.client
 import smartlist.actions
 
 routes = aiohttp.web.RouteTableDef()
@@ -28,7 +29,9 @@ def get_home(request: aiohttp.web.Request):
 @require_auth
 @aiohttp_jinja2.template("artists.html")
 def get_artists(request: aiohttp.web.Request):
-    pass
+    return smartlist.actions.get_artists(
+        request["client"],
+    )
 
 
 @routes.get("/login", name="login")

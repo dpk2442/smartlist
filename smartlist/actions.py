@@ -7,6 +7,7 @@ import secrets
 import aiohttp
 import aiohttp.web
 
+import smartlist.client
 import smartlist.db
 import smartlist.session
 
@@ -17,6 +18,12 @@ logger = logging.getLogger(__name__)
 def get_home(session: smartlist.session.Session, artists_route: str):
     if session.user_info is not None:
         return aiohttp.web.HTTPTemporaryRedirect(artists_route)
+
+
+async def get_artists(spotify_client: smartlist.client.SpotifyClient):
+    return dict(
+        artists=await spotify_client.get_followed_artists(),
+    )
 
 
 def login(
@@ -32,7 +39,7 @@ def login(
             redirect_uri=urllib.parse.urljoin(
                 config.get("auth", "callback_base_url"), login_callback_route),
             state=state,
-            scope="",
+            scope="user-follow-read",
         )),
     )
 
@@ -90,12 +97,12 @@ async def login_callback(
 
             profile_data = await resp.json()
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         now += datetime.timedelta(seconds=auth_data["expires_in"])
         session.user_info = dict(
             user_id=profile_data["uri"],
             access_token=auth_data["access_token"],
-            access_token_expiry="{}Z".format(now.isoformat()),
+            access_token_expiry=now.isoformat(),
         )
         db.upsert_user(profile_data["uri"], auth_data["refresh_token"])
 

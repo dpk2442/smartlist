@@ -33,6 +33,24 @@ def test_properties(attr):
     assert getattr(session, attr) is None
 
 
+def test_user_info_acccessors():
+    session = smartlist.session.Session({})
+
+    assert session.user_id is None
+    assert session.access_token is None
+    assert session.access_token_expiry is None
+
+    session.user_info = dict(
+        user_id="user_id",
+        access_token="access_token",
+        access_token_expiry="access_token_expiry",
+    )
+
+    assert session.user_id == "user_id"
+    assert session.access_token == "access_token"
+    assert session.access_token_expiry == "access_token_expiry"
+
+
 @pytest.mark.asyncio
 async def test_get_session(monkeypatch):
     mock_aiohttp_get_session = unittest.mock.AsyncMock()

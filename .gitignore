@@ -10,3 +10,6 @@ __pycache__
 /.coverage
 /htmlcov
 /test_report.html
+
+# Tests
+/.pytest_cache

@@ -10,6 +10,21 @@ def test_constructor():
     assert db._conn == "conn"
 
 
+def test_get_refresh_token():
+    mock_conn = unittest.mock.MagicMock()
+    mock_conn.__enter__.return_value.execute.return_value.fetchone.return_value = ["refresh_token"]
+
+    db = smartlist.db.SmartListDB(mock_conn)
+    result = db.get_refresh_token("user_id")
+
+    assert result == "refresh_token"
+    mock_conn.__enter__.return_value.execute.assert_called_once_with(
+        unittest.mock.ANY,
+        ("user_id",),
+    )
+    mock_conn.__enter__.return_value.execute.return_value.fetchone.assert_called_once_with()
+
+
 def test_upsert_user():
     mock_conn = unittest.mock.MagicMock()
     db = smartlist.db.SmartListDB(mock_conn)
