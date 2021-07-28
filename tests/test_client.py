@@ -247,7 +247,7 @@ class TestGetFollowedArtists(object):
         mock_response.status = 200
         mock_response.json.return_value = dict(
             artists=dict(
-                items=["artist1", "artist2"],
+                items=[dict(name="artist2"), dict(name="artist1")],
                 next=None,
             ),
         )
@@ -257,7 +257,7 @@ class TestGetFollowedArtists(object):
 
         artists = await client.get_followed_artists()
 
-        assert artists == ["artist1", "artist2"]
+        assert artists == [dict(name="artist1"), dict(name="artist2")]
         client._make_api_call.assert_called_once_with(
             "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10")
         mock_response.json.assert_called_once_with()
@@ -267,12 +267,12 @@ class TestGetFollowedArtists(object):
         mock_response.status = 200
         mock_response.json.side_effect = (dict(
             artists=dict(
-                items=["artist1", "artist2"],
+                items=[dict(name="artist2"), dict(name="artist1")],
                 next="page 2 url",
             ),
         ), dict(
             artists=dict(
-                items=["artist3", "artist4"],
+                items=[dict(name="artist4"), dict(name="artist3")],
                 next=None,
             ),
         ))
@@ -282,7 +282,8 @@ class TestGetFollowedArtists(object):
 
         artists = await client.get_followed_artists()
 
-        assert artists == ["artist1", "artist2", "artist3", "artist4"]
+        assert artists == [dict(name="artist1"), dict(name="artist2"),
+                           dict(name="artist3"), dict(name="artist4")]
         client._make_api_call.assert_has_calls((
             unittest.mock.call(
                 "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10"),

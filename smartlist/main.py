@@ -56,10 +56,13 @@ def main():
         logger.info("Loaded config from {}".format(",".join(files_read)))
 
     template_path = os.path.realpath(os.path.join(root_path, "templates"))
+    static_path = os.path.realpath(os.path.join(root_path, "static"))
 
     app = aiohttp.web.Application()
     app["config"] = config
     app["db"] = smartlist.db.init_db(root_path, config)
+    app["static_root_url"] = "/assets"
+    app.router.add_static(app["static_root_url"], static_path)
     app.router.add_routes(smartlist.handlers.routes)
 
     secret_key = base64.urlsafe_b64decode(config.get("session", "secret_key"))

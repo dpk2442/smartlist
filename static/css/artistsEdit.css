@@ -1,0 +1,10 @@
+artists-edit-form ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+artists-edit-form artist-configuration {
+    display: inline-block;
+    margin: 0.5em;
+}

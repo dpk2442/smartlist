@@ -113,4 +113,5 @@ class SpotifyClient(object):
 
                 url = payload["artists"]["next"]
 
+        artists.sort(key=lambda a: a["name"].lower())
         return artists
