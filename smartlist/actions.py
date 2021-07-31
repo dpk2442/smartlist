@@ -20,10 +20,33 @@ def get_home(session: smartlist.session.Session, artists_route: str):
         return aiohttp.web.HTTPTemporaryRedirect(artists_route)
 
 
-async def get_artists(spotify_client: smartlist.client.SpotifyClient):
+async def get_artists(db: smartlist.db.SmartListDB,
+                      session: smartlist.session.Session,
+                      spotify_client: smartlist.client.SpotifyClient):
     return dict(
-        artists=await spotify_client.get_followed_artists(),
+        saved_artists={artist["id"] for artist in db.get_artists(session.user_id)},
+        followed_artists=await spotify_client.get_followed_artists(),
     )
+
+
+async def post_artists(db: smartlist.db.SmartListDB, session: smartlist.session.Session, payload):
+    if not isinstance(payload, dict) or \
+            "artists" not in payload or \
+            not isinstance(payload["artists"], dict):
+        return aiohttp.web.HTTPBadRequest(text="Invalid request body")
+
+    artists_to_add = []
+    artists_to_remove = []
+    for artist, should_save in payload["artists"].items():
+        if should_save:
+            artists_to_add.append(artist)
+        else:
+            artists_to_remove.append(artist)
+
+    db.add_artists(session.user_id, artists_to_add)
+    db.remove_artists(session.user_id, artists_to_remove)
+
+    return aiohttp.web.json_response()
 
 
 def login(

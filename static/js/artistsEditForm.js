@@ -12,6 +12,10 @@ class ArtistsEditForm extends HTMLElement {
             <p id="status"></p>
         `;
 
+        this._csrfToken = this.getAttribute('csrf-token');
+        this._saveUrl = this.getAttribute('save-url');
+        this._successRedirectUrl = this.getAttribute('success-redirect-url');
+
         this._saveButton = shadowRoot.querySelector('#save');
         this._saveButton.addEventListener('click', () => this._save());
         this._resetButton = shadowRoot.querySelector('#reset');
@@ -51,18 +55,27 @@ class ArtistsEditForm extends HTMLElement {
         };
 
         for (const el of this._dirtyElements.values()) {
-            payload.artists[el.uri] = el.value;
+            payload.artists[el.id] = el.value;
         }
 
-        console.log('would post', payload);
         this._setSavingState();
-        setTimeout(() => {
-            if (Math.random() > 0.5) {
-                this._saved('error');
-            } else {
-                this._saved();
-            }
-        }, 1000);
+        fetch(this._saveUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': this._csrfToken,
+            },
+            body: JSON.stringify(payload),
+        })
+            .then((resp) => {
+                if (resp.status === 200) {
+                    window.location = this._successRedirectUrl;
+                } else {
+                    this._saveFailed('Error encountered while saving');
+                }
+            })
+            .catch(() => {
+                this._saveFailed('Error encountered while saving');
+            });
     }
 
     _setSavingState() {
@@ -74,16 +87,12 @@ class ArtistsEditForm extends HTMLElement {
         }
     }
 
-    _saved(error) {
-        if (error) {
-            this._status.innerHTML = error;
-            this._saveButton.disabled = false;
-            this._resetButton.disabled = false;
-            for (const el of this._elements) {
-                el.disabled = false;
-            }
-        } else {
-            window.location.reload();
+    _saveFailed(error) {
+        this._status.innerHTML = error;
+        this._saveButton.disabled = false;
+        this._resetButton.disabled = false;
+        for (const el of this._elements) {
+            el.disabled = false;
         }
     }
 }

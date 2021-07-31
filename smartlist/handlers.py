@@ -1,19 +1,11 @@
 import aiohttp.web
 import aiohttp_jinja2
 
-import smartlist.client
 import smartlist.actions
+import smartlist.client
+import smartlist.handler_util
 
 routes = aiohttp.web.RouteTableDef()
-
-
-def require_auth(func):
-    async def inner(request):
-        if request["session"].user_info is None:
-            raise aiohttp.web.HTTPFound(request.app.router["home"].url_for())
-
-        return await func(request)
-    return inner
 
 
 @routes.get("/", name="home")
@@ -26,7 +18,7 @@ def get_home(request: aiohttp.web.Request):
 
 
 @routes.get("/artists", name="artists")
-@require_auth
+@smartlist.handler_util.require_auth()
 async def get_artists(request: aiohttp.web.Request):
     return aiohttp.web.HTTPTemporaryRedirect(
         request.app.router["edit_artists"].url_for(),
@@ -34,11 +26,24 @@ async def get_artists(request: aiohttp.web.Request):
 
 
 @routes.get("/artists/edit", name="edit_artists")
-@require_auth
+@smartlist.handler_util.require_auth()
 @aiohttp_jinja2.template("artists_edit.html")
 async def get_artists_edit(request: aiohttp.web.Request):
     return await smartlist.actions.get_artists(
+        request.app["db"],
+        request["session"],
         request["client"],
+    )
+
+
+@routes.post("/api/v1/artists", name="api_artists")
+@smartlist.handler_util.require_auth(redirect_on_fail=False)
+@smartlist.handler_util.require_csrf
+async def post_artists(request: aiohttp.web.Request):
+    return await smartlist.actions.post_artists(
+        request.app["db"],
+        request["session"],
+        await smartlist.handler_util.get_json_payload(request),
     )
 
 

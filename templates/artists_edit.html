@@ -7,13 +7,17 @@
 {% endblock %}
 
 {% block content %}
-    <artists-edit-form>
+    <artists-edit-form
+        csrf-token="{{ session.csrf_token }}"
+        save-url="{{ url('api_artists') }}"
+        success-redirect-url="{{ url('artists') }}">
         <ul>
-        {% for artist in artists %}
+        {% for artist in followed_artists %}
             <li>
                 <artist-configuration
-                    uri="{{ artist.uri }}"
-                    name="{{ artist.name }}">
+                    id="{{ artist.uri }}"
+                    name="{{ artist.name }}"
+                    {% if artist.uri in saved_artists %}saved{% endif %}>
                 </artist-configuration>
             </li>
         {% endfor %}

@@ -1,3 +1,4 @@
+import secrets
 import typing
 
 import aiohttp.web
@@ -22,3 +23,12 @@ async def inject_client(request: aiohttp.web.Request, handler: typing.Callable):
         return await handler(request)
     finally:
         await client.close()
+
+
+@aiohttp.web.middleware
+async def generate_csrf_token(request: aiohttp.web.Request, handler: typing.Callable):
+    session = await smartlist.session.get_session(request)
+    if session.csrf_token is None:
+        session.csrf_token = secrets.token_urlsafe()
+
+    return await handler(request)

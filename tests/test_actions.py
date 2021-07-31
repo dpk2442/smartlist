@@ -20,14 +20,54 @@ def test_get_home():
 
 @pytest.mark.asyncio
 async def test_get_artists():
+    db = unittest.mock.Mock()
+    db.get_artists.return_value = [dict(id="id1"), dict(id="id2")]
+    session = smartlist.session.Session({})
+    session.user_info = dict(user_id="user_id")
     client = unittest.mock.AsyncMock()
     client.get_followed_artists.return_value = "artists"
 
-    resp = await smartlist.actions.get_artists(client)
+    resp = await smartlist.actions.get_artists(db, session, client)
 
     assert resp == dict(
-        artists="artists",
+        saved_artists={"id1", "id2"},
+        followed_artists="artists",
     )
+    db.get_artists.assert_called_once_with("user_id")
+    client.get_followed_artists.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+class TestPostArtists(object):
+
+    async def test_success(self):
+        mock_db = unittest.mock.Mock()
+        session = smartlist.session.Session({})
+        session.user_info = dict(user_id="user_id")
+        payload = dict(
+            artists=dict(
+                a1=True,
+                a2=False,
+                a3=True,
+                a4=True,
+                a5=False,
+            ),
+        )
+        resp = await smartlist.actions.post_artists(mock_db, session, payload)
+
+        assert resp.status == 200
+        mock_db.add_artists.assert_called_once_with("user_id", ["a1", "a3", "a4"])
+        mock_db.remove_artists.assert_called_once_with("user_id", ["a2", "a5"])
+
+    @pytest.mark.parametrize("payload", [
+        "string",
+        [],
+        dict(),
+        dict(artists="string"),
+    ], ids=("string", "list", "empty_dict", "invalid_artists"))
+    async def test_bad_input(self, payload):
+        resp = await smartlist.actions.post_artists(None, None, payload)
+        assert resp.status == 400
 
 
 def test_login():

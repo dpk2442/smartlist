@@ -78,6 +78,24 @@ class Session(object):
 
         return self.user_info["access_token_expiry"]
 
+    @property
+    def csrf_token(self):
+        if "csrf_token" not in self._session:
+            return None
+
+        return self._session["csrf_token"]
+
+    @csrf_token.setter
+    def csrf_token(self, value):
+        self._session["csrf_token"] = value
+
+    @csrf_token.deleter
+    def csrf_token(self):
+        if "csrf_token" not in self._session:
+            return
+
+        del self._session["csrf_token"]
+
     def __repr__(self) -> str:  # pragma: no cover
         return repr(self._session)
 

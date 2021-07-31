@@ -2,18 +2,28 @@ import configparser
 import logging
 import os
 import sqlite3
+import typing
 
 
 logger = logging.getLogger(__name__)
 
 
-EXPECTED_DB_VERSION = 1
+EXPECTED_DB_VERSION = 2
 DB_SCHEMA_SCRIPTS = {
     1: """
         CREATE TABLE users(
             user_id UNIQUE,
             refresh_token
         );
+    """,
+    2: """
+        CREATE TABLE artists(
+            user_id NOT NULL,
+            artist_id NOT NULL,
+            playlist_id,
+            last_updated,
+            UNIQUE(user_id, artist_id)
+        )
     """,
 }
 
@@ -66,3 +76,24 @@ class SmartListDB(object):
                 ON CONFLICT(user_id) DO
                     UPDATE SET refresh_token = excluded.refresh_token
             """, (user_id, refresh_token))
+
+    def get_artists(self, user_id: str):
+        cur = self._conn.execute(
+            "SELECT (artist_id) FROM artists WHERE user_id = ?",
+            (user_id,),
+        )
+        return [dict(
+            id=val[0],
+        ) for val in cur.fetchall()]
+
+    def add_artists(self, user_id: str, artist_ids: typing.List[str]):
+        self._conn.executemany(
+            "INSERT INTO artists(user_id, artist_id) VALUES(?, ?)",
+            [(user_id, artist_id) for artist_id in artist_ids],
+        )
+
+    def remove_artists(self, user_id: str, artist_ids: typing.List[str]):
+        self._conn.executemany(
+            "DELETE FROM artists WHERE user_id = ? AND artist_id = ?",
+            [(user_id, artist_id) for artist_id in artist_ids],
+        )

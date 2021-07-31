@@ -2,7 +2,7 @@ class ArtistConfiguration extends HTMLElement {
     constructor() {
         super();
 
-        this._defaultChecked = Math.random() > 0.5;
+        this._defaultChecked = this.hasAttribute('saved');
 
         const shadowRoot = this.attachShadow({ mode: 'open' });
         shadowRoot.innerHTML = `
@@ -63,8 +63,8 @@ class ArtistConfiguration extends HTMLElement {
         this._label.classList.toggle('changed', false);
     }
 
-    get uri() {
-        return this.getAttribute('uri');
+    get id() {
+        return this.getAttribute('id');
     }
 
     get value() {

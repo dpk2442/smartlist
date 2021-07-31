@@ -52,3 +52,39 @@ async def test_inject_client(monkeypatch: pytest.MonkeyPatch,
     mock_spotify_client_constructor.assert_called_once_with("config", "db", mock_session)
     mock_handler.assert_called_once_with(mock_request)
     mock_spotify_client_constructor.return_value.close.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+class TestGenerateCsrfToken(object):
+
+    @pytest.fixture
+    def mock_token_urlsafe(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.middleware.secrets.token_urlsafe", mock)
+        return mock
+
+    async def test_no_existing_token(self,
+                                     mock_session: unittest.mock.AsyncMock,
+                                     mock_token_urlsafe: unittest.mock.Mock):
+        mock_session.csrf_token = None
+        mock_token_urlsafe.return_value = "token"
+
+        mock_handler = unittest.mock.AsyncMock()
+        await smartlist.middleware.generate_csrf_token("request", mock_handler)
+
+        assert mock_session.csrf_token == "token"
+        mock_token_urlsafe.assert_called_once_with()
+        mock_handler.assert_called_once_with("request")
+
+    async def test_existing_token(self,
+                                  mock_session: unittest.mock.AsyncMock,
+                                  mock_token_urlsafe: unittest.mock.Mock):
+        mock_session.csrf_token = "token"
+        mock_token_urlsafe.return_value = "new_token"
+
+        mock_handler = unittest.mock.AsyncMock()
+        await smartlist.middleware.generate_csrf_token("request", mock_handler)
+
+        assert mock_session.csrf_token == "token"
+        mock_token_urlsafe.assert_not_called()
+        mock_handler.assert_called_once_with("request")

@@ -71,6 +71,7 @@ def main():
     app.middlewares.extend([
         smartlist.middleware.load_session,
         smartlist.middleware.inject_client,
+        smartlist.middleware.generate_csrf_token,
     ])
 
     aiohttp_jinja2.setup(

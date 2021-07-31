@@ -20,7 +20,7 @@ def test_flash():
     assert session.pop_flashes() == []
 
 
-@pytest.mark.parametrize("attr", ["auth_state", "user_info"])
+@pytest.mark.parametrize("attr", ["auth_state", "user_info", "csrf_token"])
 def test_properties(attr):
     session = smartlist.session.Session({})
 
