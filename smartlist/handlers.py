@@ -29,7 +29,7 @@ async def get_artists(request: aiohttp.web.Request):
 @smartlist.handler_util.require_auth()
 @aiohttp_jinja2.template("artists_edit.html")
 async def get_artists_edit(request: aiohttp.web.Request):
-    return await smartlist.actions.get_artists(
+    return await smartlist.actions.get_artists_edit(
         request.app["db"],
         request["session"],
         request["client"],

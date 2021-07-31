@@ -20,9 +20,9 @@ def get_home(session: smartlist.session.Session, artists_route: str):
         return aiohttp.web.HTTPTemporaryRedirect(artists_route)
 
 
-async def get_artists(db: smartlist.db.SmartListDB,
-                      session: smartlist.session.Session,
-                      spotify_client: smartlist.client.SpotifyClient):
+async def get_artists_edit(db: smartlist.db.SmartListDB,
+                           session: smartlist.session.Session,
+                           spotify_client: smartlist.client.SpotifyClient):
     return dict(
         saved_artists={artist["id"] for artist in db.get_artists(session.user_id)},
         followed_artists=await spotify_client.get_followed_artists(),
