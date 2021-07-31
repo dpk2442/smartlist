@@ -112,8 +112,8 @@ def test_upsert_user():
 
 
 def test_get_artists():
-    mock_conn = unittest.mock.Mock()
-    mock_conn.execute.return_value.fetchall.return_value = (
+    mock_conn = unittest.mock.MagicMock()
+    mock_conn.__enter__.return_value.execute.return_value.fetchall.return_value = (
         ("id1",),
         ("id2",),
     )
@@ -122,19 +122,19 @@ def test_get_artists():
     artists = db.get_artists("user_id")
 
     assert artists == [dict(id="id1"), dict(id="id2")]
-    mock_conn.execute.assert_called_once_with(
+    mock_conn.__enter__.return_value.execute.assert_called_once_with(
         unittest.mock.ANY,
         ("user_id",),
     )
-    mock_conn.execute.return_value.fetchall.assert_called_once_with()
+    mock_conn.__enter__.return_value.execute.return_value.fetchall.assert_called_once_with()
 
 
 def test_add_artists():
-    mock_conn = unittest.mock.Mock()
+    mock_conn = unittest.mock.MagicMock()
     db = smartlist.db.SmartListDB(mock_conn)
     db.add_artists("user_id", ("a1", "a2", "a3"))
 
-    mock_conn.executemany.assert_called_once_with(
+    mock_conn.__enter__.return_value.executemany.assert_called_once_with(
         unittest.mock.ANY,
         [
             ("user_id", "a1"),
@@ -145,11 +145,11 @@ def test_add_artists():
 
 
 def test_remove_artists():
-    mock_conn = unittest.mock.Mock()
+    mock_conn = unittest.mock.MagicMock()
     db = smartlist.db.SmartListDB(mock_conn)
     db.remove_artists("user_id", ("a1", "a2", "a3"))
 
-    mock_conn.executemany.assert_called_once_with(
+    mock_conn.__enter__.return_value.executemany.assert_called_once_with(
         unittest.mock.ANY,
         [
             ("user_id", "a1"),

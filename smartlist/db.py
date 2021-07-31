@@ -78,22 +78,25 @@ class SmartListDB(object):
             """, (user_id, refresh_token))
 
     def get_artists(self, user_id: str):
-        cur = self._conn.execute(
-            "SELECT (artist_id) FROM artists WHERE user_id = ?",
-            (user_id,),
-        )
-        return [dict(
-            id=val[0],
-        ) for val in cur.fetchall()]
+        with self._conn as conn:
+            cur = conn.execute(
+                "SELECT (artist_id) FROM artists WHERE user_id = ?",
+                (user_id,),
+            )
+            return [dict(
+                id=val[0],
+            ) for val in cur.fetchall()]
 
     def add_artists(self, user_id: str, artist_ids: typing.List[str]):
-        self._conn.executemany(
-            "INSERT INTO artists(user_id, artist_id) VALUES(?, ?)",
-            [(user_id, artist_id) for artist_id in artist_ids],
-        )
+        with self._conn as conn:
+            conn.executemany(
+                "INSERT INTO artists(user_id, artist_id) VALUES(?, ?)",
+                [(user_id, artist_id) for artist_id in artist_ids],
+            )
 
     def remove_artists(self, user_id: str, artist_ids: typing.List[str]):
-        self._conn.executemany(
-            "DELETE FROM artists WHERE user_id = ? AND artist_id = ?",
-            [(user_id, artist_id) for artist_id in artist_ids],
-        )
+        with self._conn as conn:
+            conn.executemany(
+                "DELETE FROM artists WHERE user_id = ? AND artist_id = ?",
+                [(user_id, artist_id) for artist_id in artist_ids],
+            )
