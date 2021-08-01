@@ -114,14 +114,17 @@ def test_upsert_user():
 def test_get_artists():
     mock_conn = unittest.mock.MagicMock()
     mock_conn.__enter__.return_value.execute.return_value.fetchall.return_value = (
-        ("id1",),
-        ("id2",),
+        ("id1", "pid1", "updated"),
+        ("id2", None, None),
     )
 
     db = smartlist.db.SmartListDB(mock_conn)
     artists = db.get_artists("user_id")
 
-    assert artists == [dict(id="id1"), dict(id="id2")]
+    assert artists == [
+        dict(id="id1", playlist_id="pid1", last_updated="updated"),
+        dict(id="id2", playlist_id=None, last_updated=None),
+    ]
     mock_conn.__enter__.return_value.execute.assert_called_once_with(
         unittest.mock.ANY,
         ("user_id",),

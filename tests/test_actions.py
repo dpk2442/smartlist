@@ -19,6 +19,28 @@ def test_get_home():
 
 
 @pytest.mark.asyncio
+async def test_get_artists():
+    db = unittest.mock.Mock()
+    db.get_artists.return_value = [
+        dict(id="id1", playlist_id=None), dict(id="id2", playlist_id="pid2")]
+    session = smartlist.session.Session({})
+    session.user_info = dict(user_id="user_id")
+    client = unittest.mock.AsyncMock()
+    client.get_artists_by_ids.return_value = [dict(uri="id2"), dict(uri="id1")]
+
+    resp = await smartlist.actions.get_artists(db, session, client)
+
+    assert resp == dict(
+        saved_artists=[
+            dict(details=dict(uri="id2"), state=dict(id="id2", playlist_id="pid2")),
+            dict(details=dict(uri="id1"), state=dict(id="id1", playlist_id=None)),
+        ]
+    )
+    db.get_artists.assert_called_once_with("user_id")
+    client.get_artists_by_ids.assert_called_once_with(["id1", "id2"])
+
+
+@pytest.mark.asyncio
 async def test_get_artists_edit():
     db = unittest.mock.Mock()
     db.get_artists.return_value = [dict(id="id1"), dict(id="id2")]

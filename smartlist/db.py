@@ -80,11 +80,13 @@ class SmartListDB(object):
     def get_artists(self, user_id: str):
         with self._conn as conn:
             cur = conn.execute(
-                "SELECT (artist_id) FROM artists WHERE user_id = ?",
+                "SELECT artist_id,playlist_id,last_updated FROM artists WHERE user_id = ?",
                 (user_id,),
             )
             return [dict(
                 id=val[0],
+                playlist_id=val[1],
+                last_updated=val[2],
             ) for val in cur.fetchall()]
 
     def add_artists(self, user_id: str, artist_ids: typing.List[str]):

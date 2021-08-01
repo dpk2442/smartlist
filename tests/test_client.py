@@ -308,3 +308,72 @@ class TestGetFollowedArtists(object):
 
         client._make_api_call.assert_called_once_with(
             "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10")
+
+
+@pytest.mark.asyncio
+class TestGetArtistsById(object):
+
+    async def test_single_batch(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = dict(
+            artists=[dict(name="artist2"), dict(name="artist3"), dict(name="artist1")])
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        artist_ids = ["spotify:artist:id1", "spotify:artist:id2", "spotify:artist:id3"]
+        artists = await client.get_artists_by_ids(artist_ids)
+
+        assert artists == [dict(name="artist1"), dict(name="artist2"), dict(name="artist3")]
+        mock_response.json.assert_called_once_with()
+        client._make_api_call.assert_called_once_with(
+            "get",  "https://api.spotify.com/v1/artists?ids=id1,id2,id3")
+        client._make_api_call.return_value.__aenter__.assert_called_once_with()
+
+    async def test_multiple_batches(self,
+                                    monkeypatch: pytest.MonkeyPatch,
+                                    client: smartlist.client.SpotifyClient):
+        monkeypatch.setattr("smartlist.client.ARTIST_IDS_BATCH_SIZE", 2)
+
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.side_effect = (
+            dict(artists=[dict(name="artist2"), dict(name="artist1")]),
+            dict(artists=[dict(name="artist3")]),
+        )
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        artist_ids = ["spotify:artist:id1", "spotify:artist:id2", "spotify:artist:id3"]
+        artists = await client.get_artists_by_ids(artist_ids)
+
+        assert artists == [dict(name="artist1"), dict(name="artist2"), dict(name="artist3")]
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call("get", "https://api.spotify.com/v1/artists?ids=id1,id2"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+            unittest.mock.call("get", "https://api.spotify.com/v1/artists?ids=id3"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_200_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        artist_ids = ["spotify:artist:id1", "spotify:artist:id2", "spotify:artist:id3"]
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error getting artists by id"):
+            await client.get_artists_by_ids(artist_ids)
+
+        mock_response.json.assert_not_called()
+        client._make_api_call.assert_called_once_with(
+            "get",  "https://api.spotify.com/v1/artists?ids=id1,id2,id3")
+        client._make_api_call.return_value.__aenter__.assert_called_once_with()

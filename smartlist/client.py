@@ -2,6 +2,7 @@ import configparser
 import contextlib
 import datetime
 import logging
+import typing
 
 import aiohttp
 
@@ -9,6 +10,7 @@ import smartlist.db
 import smartlist.session
 
 
+ARTIST_IDS_BATCH_SIZE = 50
 logger = logging.getLogger(__name__)
 
 
@@ -112,6 +114,25 @@ class SpotifyClient(object):
                     break
 
                 url = payload["artists"]["next"]
+
+        artists.sort(key=lambda a: a["name"].lower())
+        return artists
+
+    async def get_artists_by_ids(self, artist_ids: typing.List[str]):
+        artists = []
+        for batch_start in range(0, len(artist_ids), ARTIST_IDS_BATCH_SIZE):
+            async with self._make_api_call(
+                "get",
+                "https://api.spotify.com/v1/artists?ids={}".format(
+                    ",".join(id[len("spotify:artist:"):] for id in
+                             artist_ids[batch_start:batch_start + ARTIST_IDS_BATCH_SIZE])),
+            ) as resp:
+                if resp.status != 200:
+                    print(await resp.text())
+                    raise SpotifyApiException("Error getting artists by id")
+
+                payload = await resp.json()
+                artists.extend(payload["artists"])
 
         artists.sort(key=lambda a: a["name"].lower())
         return artists
