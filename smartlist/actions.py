@@ -78,7 +78,7 @@ async def get_artists_sync(request: aiohttp.web.Request,
     if not csrf_check_succeeded:
         return aiohttp.web.HTTPUnauthorized(text="No CSRF token provided!")
 
-    await smartlist.sync.sync_artists(ws, db, session, spotify_client)
+    await smartlist.sync.sync_artists(ws, db, session.user_id, spotify_client)
     return ws
 
 

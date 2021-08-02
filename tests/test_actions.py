@@ -120,6 +120,7 @@ class TestGetArtistsSync(object):
         )
 
         mock_session = smartlist.session.Session({})
+        mock_session.user_info = dict(user_id="user_id")
         mock_session.csrf_token = "token"
 
         resp = await smartlist.actions.get_artists_sync("request", "db", mock_session, "client")
@@ -127,7 +128,7 @@ class TestGetArtistsSync(object):
         assert resp == mock_websocket
         mock_websocket.prepare.assert_called_once_with("request")
         mock_websocket.receive_json.assert_called_once_with()
-        mock_sync.assert_called_once_with(mock_websocket, "db", mock_session, "client")
+        mock_sync.assert_called_once_with(mock_websocket, "db", "user_id", "client")
 
     async def test_recieve_json_exception(self,
                                           mock_websocket: unittest.mock.AsyncMock,
