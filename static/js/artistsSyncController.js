@@ -1,9 +1,3 @@
-function sleep(timeout) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, timeout);
-    });
-}
-
 class ArtistsSyncController extends HTMLElement {
     constructor() {
         super();
@@ -16,6 +10,10 @@ class ArtistsSyncController extends HTMLElement {
             <slot></slot>
         `;
 
+        this._csrfToken = this.getAttribute('csrf-token');
+        this._syncUrl = window.location.protocol === 'https' ? 'wss://' : 'ws://';
+        this._syncUrl += window.location.host + this.getAttribute('sync-url');
+
         this._syncButton = shadowRoot.querySelector('#sync');
         this._syncButton.addEventListener('click', () => this._sync());
 
@@ -24,29 +22,51 @@ class ArtistsSyncController extends HTMLElement {
         );
     }
 
-    async _sync() {
+    _sync() {
         this._syncButton.disabled = true;
 
-        for (const el of Object.values(this._detailsElements)) {
-            el.state = 'pending';
-        }
+        const ws = new WebSocket(this._syncUrl);
+        ws.onopen = () => {
+            ws.send(
+                JSON.stringify({
+                    type: 'csrf',
+                    csrfToken: this._csrfToken,
+                })
+            );
+        };
+        ws.onmessage = (ev) => {
+            const msg = JSON.parse(ev.data);
+            switch (msg.type) {
+                case 'start':
+                    for (const el of Object.values(this._detailsElements)) {
+                        el.state = 'pending';
+                    }
+                    break;
 
-        await sleep(1000);
+                case 'artistStart':
+                    this._detailsElements[msg.artistId].state = 'syncing';
+                    break;
 
-        for (const id of Object.keys(this._detailsElements)) {
-            this._detailsElements[id].state = 'syncing';
-            await sleep(2000);
-            this._detailsElements[id].state = '';
-        }
+                case 'artistError':
+                    this._detailsElements[msg.artistId].error = msg.error;
+                    this._detailsElements[msg.artistId].state = 'error';
+                    break;
 
-        for (const el of Object.values(this._detailsElements)) {
-            if (el.state) {
-                el.error = 'No sync perfomed';
-                el.state = 'error';
+                case 'artistComplete':
+                    this._detailsElements[msg.artistId].state = '';
+                    break;
             }
-        }
+        };
+        ws.onclose = () => {
+            for (const el of Object.values(this._detailsElements)) {
+                if (el.state && el.state !== 'error') {
+                    el.error = 'No sync perfomed';
+                    el.state = 'error';
+                }
+            }
 
-        this._syncButton.disabled = false;
+            this._syncButton.disabled = false;
+        };
     }
 }
 

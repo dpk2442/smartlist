@@ -50,6 +50,17 @@ async def post_artists(request: aiohttp.web.Request):
     )
 
 
+@routes.get("/api/v1/artists/sync", name="api_artists_sync")
+@smartlist.handler_util.require_auth(redirect_on_fail=False)
+async def get_artists_sync(request: aiohttp.web.Request):
+    return await smartlist.actions.get_artists_sync(
+        request,
+        request.app["db"],
+        request["session"],
+        request["client"],
+    )
+
+
 @routes.get("/login", name="login")
 def login(request: aiohttp.web.Request):
     return smartlist.actions.login(

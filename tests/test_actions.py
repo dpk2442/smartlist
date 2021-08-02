@@ -92,6 +92,74 @@ class TestPostArtists(object):
         assert resp.status == 400
 
 
+@pytest.mark.asyncio
+class TestGetArtistsSync(object):
+
+    @pytest.fixture
+    def mock_websocket(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.AsyncMock()
+        mock_constructor = unittest.mock.Mock()
+        mock_constructor.return_value = mock
+        monkeypatch.setattr("smartlist.actions.aiohttp.web.WebSocketResponse",
+                            mock_constructor)
+        return mock
+
+    @pytest.fixture
+    def mock_sync(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.AsyncMock()
+        monkeypatch.setattr("smartlist.actions.smartlist.sync.sync_artists",
+                            mock)
+        return mock
+
+    async def test_success(self,
+                           mock_websocket: unittest.mock.AsyncMock,
+                           mock_sync: unittest.mock.AsyncMock):
+        mock_websocket.receive_json.return_value = dict(
+            type="csrf",
+            csrfToken="token",
+        )
+
+        mock_session = smartlist.session.Session({})
+        mock_session.csrf_token = "token"
+
+        resp = await smartlist.actions.get_artists_sync("request", "db", mock_session, "client")
+
+        assert resp == mock_websocket
+        mock_websocket.prepare.assert_called_once_with("request")
+        mock_websocket.receive_json.assert_called_once_with()
+        mock_sync.assert_called_once_with(mock_websocket, "db", mock_session, "client")
+
+    async def test_recieve_json_exception(self,
+                                          mock_websocket: unittest.mock.AsyncMock,
+                                          mock_sync: unittest.mock.AsyncMock):
+        mock_websocket.receive_json.side_effect = Exception()
+
+        resp = await smartlist.actions.get_artists_sync("request", "db", "session", "client")
+
+        assert resp.status == 401
+        mock_websocket.prepare.assert_called_once_with("request")
+        mock_websocket.receive_json.assert_called_once_with()
+        mock_sync.assert_not_called()
+
+    async def test_token_mismatch(self,
+                                  mock_websocket: unittest.mock.AsyncMock,
+                                  mock_sync: unittest.mock.AsyncMock):
+        mock_websocket.receive_json.return_value = dict(
+            type="csrf",
+            csrfToken="wsToken",
+        )
+
+        mock_session = smartlist.session.Session({})
+        mock_session.csrf_token = "sessionToken"
+
+        resp = await smartlist.actions.get_artists_sync("request", "db", mock_session, "client")
+
+        assert resp.status == 401
+        mock_websocket.prepare.assert_called_once_with("request")
+        mock_websocket.receive_json.assert_called_once_with()
+        mock_sync.assert_not_called()
+
+
 def test_login():
     config = unittest.mock.Mock()
     config.get.side_effect = ["client_id", "http://base_url"]

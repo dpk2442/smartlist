@@ -10,6 +10,7 @@ import aiohttp.web
 import smartlist.client
 import smartlist.db
 import smartlist.session
+import smartlist.sync
 
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,27 @@ async def post_artists(db: smartlist.db.SmartListDB, session: smartlist.session.
     db.remove_artists(session.user_id, artists_to_remove)
 
     return aiohttp.web.json_response()
+
+
+async def get_artists_sync(request: aiohttp.web.Request,
+                           db: smartlist.db.SmartListDB,
+                           session: smartlist.session.Session,
+                           spotify_client: smartlist.client.SpotifyClient):
+    ws = aiohttp.web.WebSocketResponse()
+    await ws.prepare(request)
+
+    csrf_check_succeeded = False
+    try:
+        msg = await ws.receive_json()
+        csrf_check_succeeded = msg["type"] == "csrf" and msg["csrfToken"] == session.csrf_token
+    except Exception:
+        pass
+
+    if not csrf_check_succeeded:
+        return aiohttp.web.HTTPUnauthorized(text="No CSRF token provided!")
+
+    await smartlist.sync.sync_artists(ws, db, session, spotify_client)
+    return ws
 
 
 def login(

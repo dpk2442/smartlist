@@ -10,7 +10,9 @@
     <p>
         <a href="{{ url('edit_artists') }}">Edit Saved Artists</a>
     </p>
-    <artists-sync-controller>
+    <artists-sync-controller
+        csrf-token="{{ session.csrf_token }}"
+        sync-url="{{ url('api_artists_sync') }}">
         <ul>
         {% for artist in saved_artists %}
             <li>
