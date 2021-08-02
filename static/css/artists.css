@@ -1,0 +1,10 @@
+artists-sync-controller ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+artists-sync-controller artist-details {
+    display: inline-block;
+    margin: 0.5em;
+}

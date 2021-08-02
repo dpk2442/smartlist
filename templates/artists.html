@@ -1,22 +1,25 @@
 {% extends "base.html" %}
 
 {% block head %}
-{# <link rel="stylesheet" href="{{ static('css/artistsEdit.css') }}">
-<script src="{{ static('js/artistsEditForm.js') }}" async></script>
-<script src="{{ static('js/artistConfiguration.js') }}" async></script> #}
+<link rel="stylesheet" href="{{ static('css/artists.css') }}">
+<script src="{{ static('js/artistsSyncController.js') }}" async></script>
+<script src="{{ static('js/artistDetails.js') }}" async></script>
 {% endblock %}
 
 {% block content %}
     <p>
         <a href="{{ url('edit_artists') }}">Edit Saved Artists</a>
     </p>
-    <div>
+    <artists-sync-controller>
         <ul>
         {% for artist in saved_artists %}
             <li>
-                {{ artist.details.name }}
+                <artist-details
+                    id="{{ artist.state.id }}"
+                    name="{{ artist.details.name }}">
+                </artist-details>
             </li>
         {% endfor %}
         </ul>
-    </div>
+    </artists-sync-controller>
 {% endblock %}
