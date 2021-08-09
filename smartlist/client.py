@@ -14,6 +14,108 @@ ARTIST_IDS_BATCH_SIZE = 50
 logger = logging.getLogger(__name__)
 
 
+class Artist(object):
+
+    __slots__ = ("name", "uri")
+    name: str
+    uri: str
+
+    def __init__(self, name, uri):
+        self.name = name
+        self.uri = uri
+
+    @classmethod
+    def parse(cls, raw_artist: dict):
+        return cls(
+            raw_artist["name"],
+            raw_artist["uri"],
+        )
+
+
+class Album(object):
+
+    __slots__ = ("name", "_release_date", "_release_date_precision", "uri", "artists", "tracks")
+    name: str
+    _release_date: str
+    _release_date_precision: str
+    uri: str
+    artists: typing.List[Artist]
+    tracks: typing.Dict[str, "Track"]
+
+    def __init__(self, name, release_date, release_date_precision, uri, artists):
+        self.name = name
+        self._release_date = release_date
+        self._release_date_precision = release_date_precision
+        self.uri = uri
+        self.artists = artists
+        self.tracks = dict()
+
+    @property
+    def release_date(self) -> datetime.datetime:
+        if self._release_date_precision == "day":
+            return datetime.datetime.strptime(self._release_date, "%Y-%m-%d")
+
+        if self._release_date_precision == "month":
+            return datetime.datetime.strptime(self._release_date, "%Y-%m")
+
+        if self._release_date_precision == "year":
+            return datetime.datetime.strptime(self._release_date, "%Y")
+
+        raise ValueError("Unknown release date precision")
+
+    def add_track(self, track: "Track"):
+        if track.uri in self.tracks:
+            return
+
+        self.tracks[track.uri] = track
+
+    @classmethod
+    def parse(cls, raw_album: typing.Dict[str, typing.Any]):
+        album = cls(
+            raw_album["name"],
+            raw_album["release_date"],
+            raw_album["release_date_precision"],
+            raw_album["uri"],
+            [Artist.parse(raw_artist) for raw_artist in raw_album["artists"]],
+        )
+
+        if "tracks" in raw_album:
+            for raw_track in raw_album["tracks"]["items"]:
+                album.add_track(Track.parse(album, raw_track))
+
+        return album
+
+
+class Track(object):
+
+    __slots__ = ("name", "uri", "disc_number", "track_number", "artists", "album")
+    name: str
+    uri: str
+    disc_number: int
+    track_number: int
+    artists: typing.List[Artist]
+    album: Album
+
+    def __init__(self, name, uri, disc_number, track_number, artists, album):
+        self.name = name
+        self.uri = uri
+        self.disc_number = disc_number
+        self.track_number = track_number
+        self.artists = artists
+        self.album = album
+
+    @classmethod
+    def parse(cls, album: Album, raw_track: typing.Dict[str, typing.Any]):
+        return cls(
+            raw_track["name"],
+            raw_track["uri"],
+            raw_track["disc_number"],
+            raw_track["track_number"],
+            [Artist.parse(raw_artist) for raw_artist in raw_track["artists"]],
+            album,
+        )
+
+
 class SpotifyAuthorizationException(Exception):
 
     def __init__(self, message):
@@ -101,7 +203,7 @@ class SpotifyClient(object):
             await self._client_session.close()
 
     async def get_followed_artists(self):
-        url = "https://api.spotify.com/v1/me/following?type=artist&limit=10"
+        url = "https://api.spotify.com/v1/me/following?type=artist&limit=50"
         artists = []
         while True:
             async with self._make_api_call("get", url) as resp:
@@ -136,3 +238,48 @@ class SpotifyClient(object):
 
         artists.sort(key=lambda a: a["name"].lower())
         return artists
+
+    async def get_saved_albums(self) -> typing.List[Album]:
+        url = "https://api.spotify.com/v1/me/albums?limit=50"
+        albums = []
+        while True:
+            async with self._make_api_call("get", url) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error("Error getting saved albums: {} -> {}".format(resp.status, text))
+                    raise SpotifyApiException("Error getting saved albums")
+
+                payload = await resp.json()
+                for saved_album in payload["items"]:
+                    albums.append(Album.parse(saved_album["album"]))
+                if not payload["next"]:
+                    break
+
+                url = payload["next"]
+
+        return albums
+
+    async def get_saved_tracks(self) -> typing.List[Album]:
+        url = "https://api.spotify.com/v1/me/tracks?limit=50"
+        albums: typing.Dict[str, Album] = dict()
+        while True:
+            async with self._make_api_call("get", url) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error("Error getting saved tracks: {} -> {}".format(resp.status, text))
+                    raise SpotifyApiException("Error getting saved tracks")
+
+                payload = await resp.json()
+                for saved_track in payload["items"]:
+                    album_uri = saved_track["track"]["album"]["uri"]
+                    if album_uri not in albums:
+                        albums[album_uri] = Album.parse(saved_track["track"]["album"])
+                    albums[album_uri].add_track(Track.parse(
+                        albums[album_uri], saved_track["track"]))
+
+                if not payload["next"]:
+                    break
+
+                url = payload["next"]
+
+        return list(albums.values())

@@ -95,7 +95,7 @@ def login(
             redirect_uri=urllib.parse.urljoin(
                 config.get("auth", "callback_base_url"), login_callback_route),
             state=state,
-            scope="user-follow-read",
+            scope="user-follow-read user-library-read",
         )),
     )
 

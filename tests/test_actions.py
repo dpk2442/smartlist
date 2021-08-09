@@ -174,7 +174,7 @@ def test_login():
         "https://accounts.spotify.com/authorize?client_id=client_id&response_type=code&" +
         "redirect_uri=http%3A%2F%2Fbase_url%2Flogin_callback&state={}&scope={}".format(
             session.auth_state,
-            "user-follow-read")
+            "user-follow-read+user-library-read")
     )
     config.get.assert_has_calls((
         unittest.mock.call("auth", "client_id"),

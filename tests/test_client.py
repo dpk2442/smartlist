@@ -16,6 +16,134 @@ def client():
     return smartlist.client.SpotifyClient(config, db, session)
 
 
+def test_artist_parse():
+    artist = smartlist.client.Artist.parse(dict(
+        name="name",
+        uri="uri",
+    ))
+
+    assert artist.name == "name"
+    assert artist.uri == "uri"
+
+
+class TestAlbum(object):
+
+    def test_parse_with_tracks(self, monkeypatch: pytest.MonkeyPatch):
+        mock_artist_parse = unittest.mock.Mock()
+        mock_artist_parse.side_effect = ["parsed_a1", "parsed_a2"]
+        monkeypatch.setattr("smartlist.client.Artist.parse", mock_artist_parse)
+        mock_track_parse = unittest.mock.Mock()
+        mock_track_parse.side_effect = ["parsed_t1", "parsed_t2"]
+        monkeypatch.setattr("smartlist.client.Track.parse", mock_track_parse)
+        mock_add_track = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Album.add_track", mock_add_track)
+
+        album = smartlist.client.Album.parse(dict(
+            name="name",
+            release_date="release_date",
+            release_date_precision="release_date_precision",
+            uri="uri",
+            artists=["a1", "a2"],
+            tracks=dict(items=["t1", "t2"]),
+        ))
+
+        assert album.name == "name"
+        assert album._release_date == "release_date"
+        assert album._release_date_precision == "release_date_precision"
+        assert album.uri == "uri"
+        assert album.artists == ["parsed_a1", "parsed_a2"]
+        assert album.tracks == dict()
+
+        mock_track_parse.assert_has_calls((
+            unittest.mock.call(album, "t1"),
+            unittest.mock.call(album, "t2"),
+        ))
+        mock_add_track.assert_has_calls((
+            unittest.mock.call("parsed_t1"),
+            unittest.mock.call("parsed_t2"),
+        ))
+
+    def test_parse_no_tracks(self, monkeypatch: pytest.MonkeyPatch):
+        mock_artist_parse = unittest.mock.Mock()
+        mock_artist_parse.side_effect = ["parsed_a1", "parsed_a2"]
+        monkeypatch.setattr("smartlist.client.Artist.parse", mock_artist_parse)
+        mock_track_parse = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Track.parse", mock_track_parse)
+        mock_add_track = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Album.add_track", mock_add_track)
+
+        album = smartlist.client.Album.parse(dict(
+            name="name",
+            release_date="release_date",
+            release_date_precision="release_date_precision",
+            uri="uri",
+            artists=["a1", "a2"],
+        ))
+
+        assert album.name == "name"
+        assert album._release_date == "release_date"
+        assert album._release_date_precision == "release_date_precision"
+        assert album.uri == "uri"
+        assert album.artists == ["parsed_a1", "parsed_a2"]
+        assert album.tracks == dict()
+
+        mock_track_parse.assert_not_called()
+        mock_add_track.assert_not_called()
+
+    def test_add_track(self):
+        album = smartlist.client.Album(None, None, None, None, None)
+        album.tracks["t1"] = "track1"
+
+        t1 = smartlist.client.Track(None, "t1", None, None, None, None)
+        t2 = smartlist.client.Track(None, "t2", None, None, None, None)
+        album.add_track(t1)
+        album.add_track(t2)
+
+        assert album.tracks == dict(
+            t1="track1",
+            t2=t2,
+        )
+
+    @pytest.mark.parametrize("release_date,release_date_precision,expected_datetime", (
+        ("2021-02-02", "day", datetime.datetime(2021, 2, 2)),
+        ("2021-02", "month", datetime.datetime(2021, 2, 1)),
+        ("2021", "year", datetime.datetime(2021, 1, 1)),
+    ), ids=("day", "month", "year"))
+    def test_release_date(self, release_date, release_date_precision, expected_datetime):
+        album = smartlist.client.Album(None, release_date, release_date_precision, None, None)
+        assert album.release_date == expected_datetime
+
+    def test_unknown_release_precision(self):
+        album = smartlist.client.Album(None, None, "unknown", None, None)
+        with pytest.raises(ValueError, match="Unknown release date precision"):
+            album.release_date
+
+
+def test_track_parse(monkeypatch: pytest.MonkeyPatch):
+    mock_artist_parse = unittest.mock.Mock()
+    mock_artist_parse.side_effect = ["parsed_a1", "parsed_a2"]
+    monkeypatch.setattr("smartlist.client.Artist.parse", mock_artist_parse)
+
+    track = smartlist.client.Track.parse("album", dict(
+        name="name",
+        uri="uri",
+        disc_number="disc_number",
+        track_number="track_number",
+        artists=["a1", "a2"]
+    ))
+
+    assert track.name == "name"
+    assert track.uri == "uri"
+    assert track.disc_number == "disc_number"
+    assert track.track_number == "track_number"
+    assert track.artists == ["parsed_a1", "parsed_a2"]
+
+    mock_artist_parse.assert_has_calls((
+        unittest.mock.call("a1"),
+        unittest.mock.call("a2"),
+    ))
+
+
 def test_constructor():
     client = smartlist.client.SpotifyClient("config", "db", "session")
     assert client._request_session == "session"
@@ -259,7 +387,7 @@ class TestGetFollowedArtists(object):
 
         assert artists == [dict(name="artist1"), dict(name="artist2")]
         client._make_api_call.assert_called_once_with(
-            "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10")
+            "get", "https://api.spotify.com/v1/me/following?type=artist&limit=50")
         mock_response.json.assert_called_once_with()
 
     async def test_multiple_pages(self, client: smartlist.client.SpotifyClient):
@@ -286,7 +414,7 @@ class TestGetFollowedArtists(object):
                            dict(name="artist3"), dict(name="artist4")]
         client._make_api_call.assert_has_calls((
             unittest.mock.call(
-                "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10"),
+                "get", "https://api.spotify.com/v1/me/following?type=artist&limit=50"),
             unittest.mock.call().__aenter__(),
             unittest.mock.call().__aenter__().json(),
             unittest.mock.call().__aexit__(None, None, None),
@@ -307,7 +435,7 @@ class TestGetFollowedArtists(object):
             await client.get_followed_artists()
 
         client._make_api_call.assert_called_once_with(
-            "get", "https://api.spotify.com/v1/me/following?type=artist&limit=10")
+            "get", "https://api.spotify.com/v1/me/following?type=artist&limit=50")
 
 
 @pytest.mark.asyncio
@@ -377,3 +505,219 @@ class TestGetArtistsById(object):
         client._make_api_call.assert_called_once_with(
             "get",  "https://api.spotify.com/v1/artists?ids=id1,id2,id3")
         client._make_api_call.return_value.__aenter__.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+class TestGetSavedAlbums(object):
+
+    @pytest.fixture
+    def mock_album_parse(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Album.parse", mock)
+        return mock
+
+    async def test_single_page(self,
+                               client: smartlist.client.SpotifyClient,
+                               mock_album_parse: unittest.mock.Mock):
+        mock_album_parse.side_effect = ["parsed1", "parsed2"]
+
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = dict(
+            items=[dict(album="a1"), dict(album="a2")],
+            next=None
+        )
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        albums = await client.get_saved_albums()
+
+        assert albums == ["parsed1", "parsed2"]
+        mock_album_parse.assert_has_calls((
+            unittest.mock.call("a1"),
+            unittest.mock.call("a2"),
+        ))
+        client._make_api_call.assert_called_once_with(
+            "get", "https://api.spotify.com/v1/me/albums?limit=50")
+        mock_response.json.assert_called_once_with()
+
+    async def test_multiple_pages(self,
+                                  client: smartlist.client.SpotifyClient,
+                                  mock_album_parse: unittest.mock.Mock):
+        mock_album_parse.side_effect = ["parsed1", "parsed2", "parsed3"]
+
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.side_effect = (dict(
+            items=[dict(album="a1"), dict(album="a2")],
+            next="page 2 url"
+        ), dict(
+            items=[dict(album="a3")],
+            next=None
+        ))
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        albums = await client.get_saved_albums()
+
+        assert albums == ["parsed1", "parsed2", "parsed3"]
+        mock_album_parse.assert_has_calls((
+            unittest.mock.call("a1"),
+            unittest.mock.call("a2"),
+            unittest.mock.call("a3"),
+        ))
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "get", "https://api.spotify.com/v1/me/albums?limit=50"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+            unittest.mock.call("get", "page 2 url"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_200_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error getting saved albums"):
+            await client.get_saved_albums()
+
+        client._make_api_call.assert_called_once_with(
+            "get", "https://api.spotify.com/v1/me/albums?limit=50")
+
+
+@pytest.mark.asyncio
+class TestGetSavedTracks(object):
+
+    @pytest.fixture
+    def mock_album_parse(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Album.parse", mock)
+        return mock
+
+    @pytest.fixture
+    def mock_track_parse(self, monkeypatch: pytest.MonkeyPatch):
+        mock = unittest.mock.Mock()
+        monkeypatch.setattr("smartlist.client.Track.parse", mock)
+        return mock
+
+    def build_track(self, name, album):
+        return dict(
+            track=dict(
+                name=name,
+                album=dict(
+                    name=name,
+                    uri=album,
+                ),
+            ),
+        )
+
+    async def test_single_page(self,
+                               client: smartlist.client.SpotifyClient,
+                               mock_album_parse: unittest.mock.Mock,
+                               mock_track_parse: unittest.mock.Mock):
+        mock_album1 = unittest.mock.Mock()
+        mock_album2 = unittest.mock.Mock()
+        mock_album_parse.side_effect = [mock_album1, mock_album2]
+        mock_track_parse.side_effect = ["a1t1", "a1t2", "a2t1"]
+
+        a1t1 = self.build_track("a1t1", "album1")
+        a1t2 = self.build_track("a1t2", "album1")
+        a2t1 = self.build_track("a2t1", "album2")
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = dict(
+            items=[a1t1, a1t2, a2t1],
+            next=None
+        )
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        albums = await client.get_saved_tracks()
+
+        assert albums == [mock_album1, mock_album2]
+        mock_album_parse.assert_has_calls((
+            unittest.mock.call(a1t1["track"]["album"]),
+            unittest.mock.call(a2t1["track"]["album"]),
+        ))
+        mock_track_parse.assert_has_calls((
+            unittest.mock.call(mock_album1, a1t1["track"]),
+            unittest.mock.call(mock_album1, a1t2["track"]),
+            unittest.mock.call(mock_album2, a2t1["track"]),
+        ))
+        client._make_api_call.assert_called_once_with(
+            "get", "https://api.spotify.com/v1/me/tracks?limit=50")
+        mock_response.json.assert_called_once_with()
+
+    async def test_multiple_pages(self,
+                                  client: smartlist.client.SpotifyClient,
+                                  mock_album_parse: unittest.mock.Mock,
+                                  mock_track_parse: unittest.mock.Mock):
+        mock_album1 = unittest.mock.Mock()
+        mock_album2 = unittest.mock.Mock()
+        mock_album_parse.side_effect = [mock_album1, mock_album2]
+        mock_track_parse.side_effect = ["a1t1", "a1t2", "a2t1"]
+
+        a1t1 = self.build_track("a1t1", "album1")
+        a1t2 = self.build_track("a1t2", "album1")
+        a2t1 = self.build_track("a2t1", "album2")
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.side_effect = (dict(
+            items=[a1t1, a2t1],
+            next="page 2 url"
+        ), dict(
+            items=[a1t2],
+            next=None
+        ))
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        albums = await client.get_saved_tracks()
+
+        assert albums == [mock_album1, mock_album2]
+        mock_album_parse.assert_has_calls((
+            unittest.mock.call(a1t1["track"]["album"]),
+            unittest.mock.call(a2t1["track"]["album"]),
+        ))
+        mock_track_parse.assert_has_calls((
+            unittest.mock.call(mock_album1, a1t1["track"]),
+            unittest.mock.call(mock_album2, a2t1["track"]),
+            unittest.mock.call(mock_album1, a1t2["track"]),
+        ))
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "get", "https://api.spotify.com/v1/me/tracks?limit=50"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+            unittest.mock.call("get", "page 2 url"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_200_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error getting saved tracks"):
+            await client.get_saved_tracks()
+
+        client._make_api_call.assert_called_once_with(
+            "get", "https://api.spotify.com/v1/me/tracks?limit=50")
