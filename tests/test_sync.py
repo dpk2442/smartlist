@@ -1,3 +1,4 @@
+import datetime
 import operator
 import typing
 import unittest.mock
@@ -17,14 +18,14 @@ async def test_sync_artists(monkeypatch: pytest.MonkeyPatch):
     mock_db = unittest.mock.Mock()
     mock_db.get_artists.return_value = ["a1", "a2", "a3"]
 
-    await smartlist.sync.sync_artists(mock_ws, mock_db, "user_id", "client")
+    await smartlist.sync.sync_artists(mock_ws, "config", mock_db, "user_id", "client")
 
     mock_ws.send_json.assert_called_once_with(dict(type="start"))
     mock_db.get_artists.assert_called_once_with("user_id")
     mock_sync_artist.assert_has_calls((
-        unittest.mock.call(mock_ws, mock_db, "user_id", "client", "a1"),
-        unittest.mock.call(mock_ws, mock_db, "user_id", "client", "a2"),
-        unittest.mock.call(mock_ws, mock_db, "user_id", "client", "a3"),
+        unittest.mock.call(mock_ws, "config", mock_db, "user_id", "client", "a1"),
+        unittest.mock.call(mock_ws, "config", mock_db, "user_id", "client", "a2"),
+        unittest.mock.call(mock_ws, "config", mock_db, "user_id", "client", "a3"),
     ))
 
 
@@ -33,8 +34,8 @@ class TestSyncArtist(object):
 
     @pytest.fixture
     def mock_processing_functions(self, monkeypatch: pytest.MonkeyPatch):
-        def create_mock(name):
-            mock = unittest.mock.Mock()
+        def create_mock(name, constructor=unittest.mock.Mock):
+            mock = constructor()
             monkeypatch.setattr("smartlist.sync.{}".format(name), mock)
             return mock
 
@@ -42,6 +43,8 @@ class TestSyncArtist(object):
             create_mock("filter_albums"),
             create_mock("merge_album_lists"),
             create_mock("convert_album_list_to_track_list"),
+            create_mock("get_or_create_playlist", constructor=unittest.mock.AsyncMock),
+            create_mock("update_artist_playlist_info"),
         )
 
     async def test_success(self, mock_processing_functions: typing.Tuple[unittest.mock.Mock, ...]):
@@ -49,14 +52,19 @@ class TestSyncArtist(object):
             mock_filter_albums,
             mock_merge_album_lists,
             mock_convert_album_list_to_track_list,
+            mock_get_or_create_playlist,
+            mock_update_artist_playlist_info,
         ) = mock_processing_functions
 
+        now = datetime.datetime.now(datetime.timezone.utc)
         mock_filter_albums.side_effect = ["filtered_saved_albums", "filtered_saved_tracks"]
         mock_merge_album_lists.return_value = "merged_album_list"
         mock_convert_album_list_to_track_list.return_value = [
             smartlist.client.Track("t1", None, None, None, None, None),
             smartlist.client.Track("t2", None, None, None, None, None),
         ]
+        mock_get_or_create_playlist.return_value = "playlist_id"
+        mock_update_artist_playlist_info.return_value = now
 
         mock_client = unittest.mock.AsyncMock()
         mock_client.get_saved_albums.return_value = "saved_albums"
@@ -64,7 +72,8 @@ class TestSyncArtist(object):
 
         mock_ws = unittest.mock.AsyncMock()
 
-        await smartlist.sync.sync_artist(mock_ws, None, None, mock_client, dict(id="artist_id"))
+        await smartlist.sync.sync_artist(
+            mock_ws, "config", "db", "user_id", mock_client, dict(id="artist_id"))
 
         mock_filter_albums.assert_has_calls((
             unittest.mock.call("artist_id", "saved_albums"),
@@ -73,13 +82,18 @@ class TestSyncArtist(object):
         mock_merge_album_lists.assert_called_once_with(
             "filtered_saved_albums", "filtered_saved_tracks")
         mock_convert_album_list_to_track_list.assert_called_once_with("merged_album_list")
+        mock_get_or_create_playlist.assert_called_once_with(
+            "config", "user_id", mock_client, dict(id="artist_id"))
+        mock_update_artist_playlist_info.assert_called_once_with(
+            "db", "user_id", dict(id="artist_id"), "playlist_id")
 
         mock_client.get_saved_albums.assert_called_once_with()
         mock_client.get_saved_tracks.assert_called_once_with()
 
         mock_ws.send_json.assert_has_calls((
             unittest.mock.call(dict(type="artistStart", artistId="artist_id")),
-            unittest.mock.call(dict(type="artistComplete", artistId="artist_id")),
+            unittest.mock.call(dict(type="artistComplete", artistId="artist_id",
+                               lastUpdated=now.isoformat())),
         ))
 
     async def test_exception(self,
@@ -88,6 +102,8 @@ class TestSyncArtist(object):
             mock_filter_albums,
             mock_merge_album_lists,
             mock_convert_album_list_to_track_list,
+            mock_get_or_create_playlist,
+            mock_update_artist_playlist_info,
         ) = mock_processing_functions
 
         mock_client = unittest.mock.AsyncMock()
@@ -95,11 +111,14 @@ class TestSyncArtist(object):
 
         mock_ws = unittest.mock.AsyncMock()
 
-        await smartlist.sync.sync_artist(mock_ws, None, None, mock_client, dict(id="artist_id"))
+        await smartlist.sync.sync_artist(
+            mock_ws, None, None, None, mock_client, dict(id="artist_id"))
 
         mock_filter_albums.assert_not_called()
         mock_merge_album_lists.assert_not_called()
         mock_convert_album_list_to_track_list.assert_not_called()
+        mock_get_or_create_playlist.assert_not_called()
+        mock_update_artist_playlist_info.assert_not_called()
 
         mock_client.get_saved_albums.assert_called_once_with()
         mock_client.get_saved_tracks.assert_not_called()
@@ -232,3 +251,61 @@ def test_convert_album_list_to_track_list():
         ("album3", "d2t2"),
         ("album1", "t1"),
     )
+
+
+@pytest.mark.asyncio
+class TestGetOrCreatePlaylist(object):
+
+    async def test_playlist_exists(self):
+        mock_client = unittest.mock.AsyncMock()
+
+        playlist_id = await smartlist.sync.get_or_create_playlist(
+            None, None, mock_client, dict(playlist_id="playlist_id"))
+
+        assert playlist_id == "playlist_id"
+        mock_client.get_playlist.assert_called_once_with("playlist_id")
+
+    @pytest.mark.parametrize("get_fails", (True, False), ids=("GetFails", "NoExisting"))
+    async def test_playlist_created(self, get_fails):
+        mock_config = unittest.mock.Mock()
+        mock_config.get.side_effect = ("NameTemplate: {name}", "DescriptionTemplate: {name}")
+        mock_client = unittest.mock.AsyncMock()
+        mock_client.get_artists_by_ids.return_value = [dict(name="artist_name")]
+        mock_client.create_playlist.return_value = dict(uri="created_playlist_id")
+
+        artist = dict(id="artist_id", playlist_id=None)
+        if get_fails:
+            artist["playlist_id"] = "existing_playlist_id"
+            mock_client.get_playlist.side_effect = smartlist.client.SpotifyApiException(
+                "Error getting playlist")
+
+        playlist_id = await smartlist.sync.get_or_create_playlist(
+            mock_config, "user_id", mock_client, artist)
+
+        assert playlist_id == "created_playlist_id"
+        mock_config.get.assert_has_calls((
+            unittest.mock.call("playlist", "name_template", fallback="SmartList: {name}"),
+            unittest.mock.call(
+                "playlist", "description_template",
+                fallback="An automatic playlist for \"{name}\" created by SmartList"),
+        ))
+        mock_client.get_artists_by_ids.assert_called_once_with(["artist_id"])
+        mock_client.create_playlist.assert_called_once_with(
+            "user_id", "NameTemplate: artist_name", "DescriptionTemplate: artist_name")
+        if get_fails:
+            mock_client.get_playlist.assert_called_once_with("existing_playlist_id")
+
+
+def test_update_artist_playlist_info(monkeypatch: pytest.MonkeyPatch):
+    mock_datetime_datetime = unittest.mock.Mock()
+    monkeypatch.setattr("smartlist.actions.datetime.datetime", mock_datetime_datetime)
+
+    mock_db = unittest.mock.Mock()
+    last_updated = smartlist.sync.update_artist_playlist_info(
+        mock_db, "user_id", dict(id="artist_id"), "playlist_id")
+
+    assert last_updated == mock_datetime_datetime.now.return_value
+    mock_datetime_datetime.now.assert_called_once_with(datetime.timezone.utc)
+    mock_db.update_artist_playlist.assert_called_once_with(
+        "user_id", "artist_id", "playlist_id",
+        mock_datetime_datetime.now.return_value.isoformat.return_value)

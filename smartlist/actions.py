@@ -62,6 +62,7 @@ async def post_artists(db: smartlist.db.SmartListDB, session: smartlist.session.
 
 
 async def get_artists_sync(request: aiohttp.web.Request,
+                           config: configparser.ConfigParser,
                            db: smartlist.db.SmartListDB,
                            session: smartlist.session.Session,
                            spotify_client: smartlist.client.SpotifyClient):
@@ -78,7 +79,7 @@ async def get_artists_sync(request: aiohttp.web.Request,
     if not csrf_check_succeeded:
         return aiohttp.web.HTTPUnauthorized(text="No CSRF token provided!")
 
-    await smartlist.sync.sync_artists(ws, db, session.user_id, spotify_client)
+    await smartlist.sync.sync_artists(ws, config, db, session.user_id, spotify_client)
     return ws
 
 
@@ -95,7 +96,8 @@ def login(
             redirect_uri=urllib.parse.urljoin(
                 config.get("auth", "callback_base_url"), login_callback_route),
             state=state,
-            scope="user-follow-read user-library-read",
+            scope=("user-follow-read user-library-read "
+                   "playlist-modify-private playlist-modify-public"),
         )),
     )
 

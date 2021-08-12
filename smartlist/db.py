@@ -102,3 +102,15 @@ class SmartListDB(object):
                 "DELETE FROM artists WHERE user_id = ? AND artist_id = ?",
                 [(user_id, artist_id) for artist_id in artist_ids],
             )
+
+    def update_artist_playlist(self,
+                               user_id: str,
+                               artist_id: str,
+                               playlist_id: str,
+                               last_updated: str):
+        with self._conn as conn:
+            conn.execute(
+                ("UPDATE artists SET playlist_id = ?, last_updated = ? "
+                 "WHERE user_id = ? AND artist_id = ?"),
+                (playlist_id, last_updated, user_id, artist_id),
+            )

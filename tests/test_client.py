@@ -324,11 +324,11 @@ class TestMakeApiCall(object):
 
         mocked_client._client_session.request.return_value.__aenter__.return_value = mock_response
 
-        async with mocked_client._make_api_call("method", "url") as resp:
+        async with mocked_client._make_api_call("method", "url", body="body") as resp:
             assert resp == mock_response
 
         mocked_client._client_session.request.assert_called_once_with(
-            "method", "url", headers=dict(Authorization="Bearer token"))
+            "method", "url", headers=dict(Authorization="Bearer token"), json="body")
 
     async def test_retries_on_401(self, mocked_client: smartlist.client.SpotifyClient):
         mock_response = unittest.mock.Mock()
@@ -352,8 +352,12 @@ class TestMakeApiCall(object):
             assert resp == "response2"
 
         assert request_calls == [
-            unittest.mock.call("method", "url", headers=dict(Authorization="Bearer token1")),
-            unittest.mock.call("method", "url", headers=dict(Authorization="Bearer token2")),
+            unittest.mock.call("method", "url",
+                               headers=dict(Authorization="Bearer token1"),
+                               json=None),
+            unittest.mock.call("method", "url",
+                               headers=dict(Authorization="Bearer token2"),
+                               json=None),
         ]
 
 
@@ -721,3 +725,95 @@ class TestGetSavedTracks(object):
 
         client._make_api_call.assert_called_once_with(
             "get", "https://api.spotify.com/v1/me/tracks?limit=50")
+
+
+@pytest.mark.asyncio
+class TestGetPlaylist(object):
+
+    async def test_success(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = "playlist_return_value"
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        resp = await client.get_playlist("spotify:playlist:playlist_id")
+
+        assert resp == "playlist_return_value"
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "get",
+                "https://api.spotify.com/v1/playlists/playlist_id"),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_201_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error getting playlist"):
+            await client.get_playlist("spotify:playlist:playlist_id")
+
+        client._make_api_call.assert_called_once_with(
+            "get",
+            "https://api.spotify.com/v1/playlists/playlist_id",
+        )
+
+
+@pytest.mark.asyncio
+class TestCreatePlaylist(object):
+
+    async def test_success(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 201
+        mock_response.json.return_value = "playlist_return_value"
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        resp = await client.create_playlist("spotify:user:user_id", "name", "description")
+
+        assert resp == "playlist_return_value"
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "post",
+                "https://api.spotify.com/v1/users/user_id/playlists",
+                body=dict(
+                    name="name",
+                    public=False,
+                    collaborative=False,
+                    description="description",
+                )),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aenter__().json(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_200_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error creating playlist"):
+            await client.create_playlist("spotify:user:user_id", "name", "description")
+
+        client._make_api_call.assert_called_once_with(
+            "post",
+            "https://api.spotify.com/v1/users/user_id/playlists",
+            body=dict(
+                name="name",
+                public=False,
+                collaborative=False,
+                description="description",
+            ),
+        )

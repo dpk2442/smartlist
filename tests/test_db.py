@@ -160,3 +160,14 @@ def test_remove_artists():
             ("user_id", "a3"),
         ],
     )
+
+
+def test_update_artist_playlist():
+    mock_conn = unittest.mock.MagicMock()
+    db = smartlist.db.SmartListDB(mock_conn)
+    db.update_artist_playlist("user_id", "artist_id", "playlist_id", "last_updated")
+
+    mock_conn.__enter__.return_value.execute.assert_called_once_with(
+        unittest.mock.ANY,
+        ("playlist_id", "last_updated", "user_id", "artist_id"),
+    )

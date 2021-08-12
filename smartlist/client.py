@@ -181,7 +181,7 @@ class SpotifyClient(object):
         logger.info("Successfully refreshed token for {}".format(self._request_session.user_id))
 
     @contextlib.asynccontextmanager
-    async def _make_api_call(self, method: str, url: str):
+    async def _make_api_call(self, method: str, url: str, body=None):
         if self._is_access_token_expired():
             await self._refresh_token()
 
@@ -189,13 +189,15 @@ class SpotifyClient(object):
             Authorization="Bearer {}".format(self._request_session.access_token),
         )
 
-        async with self._get_client_session().request(method, url, headers=headers) as resp:
+        async with self._get_client_session().request(
+                method, url, headers=headers, json=body) as resp:
             if resp.status != 401:
                 yield resp
             else:
                 await self._refresh_token()
                 headers["Authorization"] = "Bearer {}".format(self._request_session.access_token)
-                async with self._get_client_session().request(method, url, headers=headers) as resp:
+                async with self._get_client_session().request(
+                        method, url, headers=headers, json=body) as resp:
                     yield resp
 
     async def close(self):
@@ -283,3 +285,36 @@ class SpotifyClient(object):
                 url = payload["next"]
 
         return list(albums.values())
+
+    async def get_playlist(self, playlist_id: str) -> dict:
+        async with self._make_api_call(
+            "get",
+            "https://api.spotify.com/v1/playlists/{}".format(
+                playlist_id[len("spotify:playlist:"):],
+            ),
+        ) as resp:
+            if resp.status != 200:
+                logger.error("Error getting playlist: {}".format(resp.status))
+                raise SpotifyApiException("Error getting playlist")
+
+            return await resp.json()
+
+    async def create_playlist(self, user_id: str, name: str, description: str) -> str:
+        request_payload = dict(
+            name=name,
+            public=False,
+            collaborative=False,
+            description=description,
+        )
+        async with self._make_api_call(
+                "post",
+                "https://api.spotify.com/v1/users/{}/playlists".format(
+                    user_id[len("spotify:user:"):]),
+                body=request_payload,
+        ) as resp:
+            if resp.status != 201:
+                text = await resp.text()
+                logger.error("Error creating playlist: {} -> {}".format(resp.status, text))
+                raise SpotifyApiException("Error creating playlist")
+
+            return await resp.json()

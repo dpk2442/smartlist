@@ -55,6 +55,7 @@ async def post_artists(request: aiohttp.web.Request):
 async def get_artists_sync(request: aiohttp.web.Request):
     return await smartlist.actions.get_artists_sync(
         request,
+        request.app["config"],
         request.app["db"],
         request["session"],
         request["client"],

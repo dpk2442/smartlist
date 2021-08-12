@@ -123,19 +123,21 @@ class TestGetArtistsSync(object):
         mock_session.user_info = dict(user_id="user_id")
         mock_session.csrf_token = "token"
 
-        resp = await smartlist.actions.get_artists_sync("request", "db", mock_session, "client")
+        resp = await smartlist.actions.get_artists_sync(
+            "request", "config", "db", mock_session, "client")
 
         assert resp == mock_websocket
         mock_websocket.prepare.assert_called_once_with("request")
         mock_websocket.receive_json.assert_called_once_with()
-        mock_sync.assert_called_once_with(mock_websocket, "db", "user_id", "client")
+        mock_sync.assert_called_once_with(mock_websocket, "config", "db", "user_id", "client")
 
     async def test_recieve_json_exception(self,
                                           mock_websocket: unittest.mock.AsyncMock,
                                           mock_sync: unittest.mock.AsyncMock):
         mock_websocket.receive_json.side_effect = Exception()
 
-        resp = await smartlist.actions.get_artists_sync("request", "db", "session", "client")
+        resp = await smartlist.actions.get_artists_sync(
+            "request", "config", "db", "session", "client")
 
         assert resp.status == 401
         mock_websocket.prepare.assert_called_once_with("request")
@@ -153,7 +155,8 @@ class TestGetArtistsSync(object):
         mock_session = smartlist.session.Session({})
         mock_session.csrf_token = "sessionToken"
 
-        resp = await smartlist.actions.get_artists_sync("request", "db", mock_session, "client")
+        resp = await smartlist.actions.get_artists_sync(
+            "request", "config", "db", mock_session, "client")
 
         assert resp.status == 401
         mock_websocket.prepare.assert_called_once_with("request")
@@ -174,7 +177,8 @@ def test_login():
         "https://accounts.spotify.com/authorize?client_id=client_id&response_type=code&" +
         "redirect_uri=http%3A%2F%2Fbase_url%2Flogin_callback&state={}&scope={}".format(
             session.auth_state,
-            "user-follow-read+user-library-read")
+            ("user-follow-read+user-library-read+"
+             "playlist-modify-private+playlist-modify-public"))
     )
     config.get.assert_has_calls((
         unittest.mock.call("auth", "client_id"),
