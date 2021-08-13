@@ -817,3 +817,127 @@ class TestCreatePlaylist(object):
                 description="description",
             ),
         )
+
+
+@pytest.mark.asyncio
+class TestClearPlaylist(object):
+
+    async def test_success(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 201
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        await client.clear_playlist("spotify:playlist:playlist_id")
+
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "put",
+                "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+                body=dict(uris=[]),
+            ),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_201_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(smartlist.client.SpotifyApiException, match="Error clearing playlist"):
+            await client.clear_playlist("spotify:playlist:playlist_id")
+
+        client._make_api_call.assert_called_once_with(
+            "put",
+            "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+            body=dict(uris=[]),
+        )
+
+
+@pytest.mark.asyncio
+class TestAddItemsToPlaylist(object):
+
+    async def test_single_batch(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 201
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        tracks = [
+            smartlist.client.Track(None, "t1", None, None, None, None),
+            smartlist.client.Track(None, "t2", None, None, None, None),
+            smartlist.client.Track(None, "t3", None, None, None, None),
+        ]
+        await client.add_items_to_playlist("spotify:playlist:playlist_id", tracks)
+
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "post",
+                "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+                body=dict(uris=["t1", "t2", "t3"]),
+            ),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_multiple_batches(self,
+                                    monkeypatch: pytest.MonkeyPatch,
+                                    client: smartlist.client.SpotifyClient):
+        monkeypatch.setattr("smartlist.client.PLAYLIST_ITEMS_BATCH_SIZE", 2)
+
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 201
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        tracks = [
+            smartlist.client.Track(None, "t1", None, None, None, None),
+            smartlist.client.Track(None, "t2", None, None, None, None),
+            smartlist.client.Track(None, "t3", None, None, None, None),
+        ]
+        await client.add_items_to_playlist("spotify:playlist:playlist_id", tracks)
+
+        client._make_api_call.assert_has_calls((
+            unittest.mock.call(
+                "post",
+                "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+                body=dict(uris=["t1", "t2"]),
+            ),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aexit__(None, None, None),
+            unittest.mock.call(
+                "post",
+                "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+                body=dict(uris=["t3"]),
+            ),
+            unittest.mock.call().__aenter__(),
+            unittest.mock.call().__aexit__(None, None, None),
+        ))
+
+    async def test_non_201_response(self, client: smartlist.client.SpotifyClient):
+        mock_response = unittest.mock.AsyncMock()
+        mock_response.status = 500
+
+        client._make_api_call = unittest.mock.MagicMock()
+        client._make_api_call.return_value.__aenter__.return_value = mock_response
+
+        tracks = [
+            smartlist.client.Track(None, "t1", None, None, None, None),
+            smartlist.client.Track(None, "t2", None, None, None, None),
+            smartlist.client.Track(None, "t3", None, None, None, None),
+        ]
+        with pytest.raises(smartlist.client.SpotifyApiException,
+                           match="Error adding items to playlist"):
+            await client.add_items_to_playlist("spotify:playlist:playlist_id", tracks)
+
+        client._make_api_call.assert_called_once_with(
+            "post",
+            "https://api.spotify.com/v1/playlists/playlist_id/tracks",
+            body=dict(uris=["t1", "t2", "t3"]),
+        )

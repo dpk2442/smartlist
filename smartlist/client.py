@@ -11,6 +11,7 @@ import smartlist.session
 
 
 ARTIST_IDS_BATCH_SIZE = 50
+PLAYLIST_ITEMS_BATCH_SIZE = 100
 logger = logging.getLogger(__name__)
 
 
@@ -318,3 +319,32 @@ class SpotifyClient(object):
                 raise SpotifyApiException("Error creating playlist")
 
             return await resp.json()
+
+    async def clear_playlist(self, playlist_id: str):
+        async with self._make_api_call(
+            "put",
+            "https://api.spotify.com/v1/playlists/{}/tracks".format(
+                playlist_id[len("spotify:playlist:"):]),
+            body=dict(uris=[]),
+        ) as resp:
+            if resp.status != 201:
+                text = await resp.text()
+                logger.error("Error clearing playlist: {} -> {}".format(resp.status, text))
+                raise SpotifyApiException("Error clearing playlist")
+
+    async def add_items_to_playlist(self, playlist_id: str, items: typing.List[Track]):
+        for batch_start in range(0, len(items), PLAYLIST_ITEMS_BATCH_SIZE):
+            async with self._make_api_call(
+                "post",
+                "https://api.spotify.com/v1/playlists/{}/tracks".format(
+                    playlist_id[len("spotify:playlist:"):]),
+                body=dict(
+                    uris=[i.uri for i in
+                          items[batch_start: batch_start + PLAYLIST_ITEMS_BATCH_SIZE]]
+                ),
+            ) as resp:
+                if resp.status != 201:
+                    text = await resp.text()
+                    logger.error("Error adding items to playlist: {} -> {}".format(
+                        resp.status, text))
+                    raise SpotifyApiException("Error adding items to playlist")

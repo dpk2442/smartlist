@@ -44,6 +44,7 @@ class TestSyncArtist(object):
             create_mock("merge_album_lists"),
             create_mock("convert_album_list_to_track_list"),
             create_mock("get_or_create_playlist", constructor=unittest.mock.AsyncMock),
+            create_mock("replace_playlist_tracks", constructor=unittest.mock.AsyncMock),
             create_mock("update_artist_playlist_info"),
         )
 
@@ -53,6 +54,7 @@ class TestSyncArtist(object):
             mock_merge_album_lists,
             mock_convert_album_list_to_track_list,
             mock_get_or_create_playlist,
+            mock_replace_playlist_tracks,
             mock_update_artist_playlist_info,
         ) = mock_processing_functions
 
@@ -84,6 +86,8 @@ class TestSyncArtist(object):
         mock_convert_album_list_to_track_list.assert_called_once_with("merged_album_list")
         mock_get_or_create_playlist.assert_called_once_with(
             "config", "user_id", mock_client, dict(id="artist_id"))
+        mock_replace_playlist_tracks.assert_called_once_with(
+            mock_client, "playlist_id", mock_convert_album_list_to_track_list.return_value)
         mock_update_artist_playlist_info.assert_called_once_with(
             "db", "user_id", dict(id="artist_id"), "playlist_id")
 
@@ -103,6 +107,7 @@ class TestSyncArtist(object):
             mock_merge_album_lists,
             mock_convert_album_list_to_track_list,
             mock_get_or_create_playlist,
+            mock_replace_playlist_tracks,
             mock_update_artist_playlist_info,
         ) = mock_processing_functions
 
@@ -118,6 +123,7 @@ class TestSyncArtist(object):
         mock_merge_album_lists.assert_not_called()
         mock_convert_album_list_to_track_list.assert_not_called()
         mock_get_or_create_playlist.assert_not_called()
+        mock_replace_playlist_tracks.assert_not_called()
         mock_update_artist_playlist_info.assert_not_called()
 
         mock_client.get_saved_albums.assert_called_once_with()
@@ -294,6 +300,15 @@ class TestGetOrCreatePlaylist(object):
             "user_id", "NameTemplate: artist_name", "DescriptionTemplate: artist_name")
         if get_fails:
             mock_client.get_playlist.assert_called_once_with("existing_playlist_id")
+
+
+@pytest.mark.asyncio
+async def test_replace_playlist_tracks():
+    mock_client = unittest.mock.AsyncMock()
+    await smartlist.sync.replace_playlist_tracks(mock_client, "playlist_id", "tracks")
+
+    mock_client.clear_playlist.assert_called_once_with("playlist_id")
+    mock_client.add_items_to_playlist.assert_called_once_with("playlist_id", "tracks")
 
 
 def test_update_artist_playlist_info(monkeypatch: pytest.MonkeyPatch):

@@ -48,9 +48,8 @@ async def sync_artist(ws: aiohttp.web.WebSocketResponse,
         all_saved_albums = merge_album_lists(saved_albums, saved_tracks)
         final_track_list = convert_album_list_to_track_list(all_saved_albums)
 
-        logger.info("Final track list: {}".format(", ".join(t.name for t in final_track_list)))
-
         playlist_id = await get_or_create_playlist(config, user_id, spotify_client, artist)
+        await replace_playlist_tracks(spotify_client, playlist_id, final_track_list)
         last_updated = update_artist_playlist_info(db, user_id, artist, playlist_id)
     except Exception:
         logger.exception("Failed syncing artist {}".format(artist["id"]))
@@ -137,6 +136,13 @@ async def get_or_create_playlist(config: configparser.ConfigParser,
 
     playlist = await spotify_client.create_playlist(user_id, playlist_name, playlist_description)
     return playlist["uri"]
+
+
+async def replace_playlist_tracks(spotify_client: smartlist.client.SpotifyClient,
+                                  playlist_id: str,
+                                  tracks: typing.List[smartlist.client.Track]):
+    await spotify_client.clear_playlist(playlist_id)
+    await spotify_client.add_items_to_playlist(playlist_id, tracks)
 
 
 def update_artist_playlist_info(db: smartlist.db.SmartListDB,
