@@ -32,6 +32,9 @@ class ArtistDetails extends HTMLElement {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
+                #last-updated {
+                    font-size: 0.8em;
+                }
             </style>
             <p id="state-wrapper">
                 <span id="spinner" class="spinner"></span>
@@ -40,11 +43,13 @@ class ArtistDetails extends HTMLElement {
             <p>
                 ${this.getAttribute('name')}
             </p>
+            <p id="last-updated"></p>
         `;
 
         this._stateWrapper = shadowRoot.querySelector('#state-wrapper');
         this._spinner = shadowRoot.querySelector('#spinner');
         this._state = shadowRoot.querySelector('#state');
+        this._lastUpdated = shadowRoot.querySelector('#last-updated');
     }
 
     _updateState() {
@@ -75,13 +80,23 @@ class ArtistDetails extends HTMLElement {
         }
     }
 
+    _updateLastUpdated() {
+        const lastUpdatedAttr = this.getAttribute('last-updated');
+        if (!lastUpdatedAttr) {
+            return;
+        }
+        this._lastUpdated.textContent = `Last Updated: ${new Date(lastUpdatedAttr).toLocaleString()}`;
+    }
+
     static get observedAttributes() {
-        return ['state'];
+        return ['state', 'last-updated'];
     }
 
     attributeChangedCallback(name) {
         if (name === 'state') {
             this._updateState();
+        } else if (name === 'last-updated') {
+            this._updateLastUpdated();
         }
     }
 
@@ -95,6 +110,10 @@ class ArtistDetails extends HTMLElement {
 
     set state(val) {
         this.setAttribute('state', val);
+    }
+
+    set lastUpdated(val) {
+        this.setAttribute('last-updated', val);
     }
 
     get error() {

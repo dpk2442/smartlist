@@ -18,7 +18,8 @@
             <li>
                 <artist-details
                     id="{{ artist.state.id }}"
-                    name="{{ artist.details.name }}">
+                    name="{{ artist.details.name }}"
+                    last-updated="{{ artist.state.last_updated or '' }}">
                 </artist-details>
             </li>
         {% endfor %}

@@ -54,6 +54,7 @@ class ArtistsSyncController extends HTMLElement {
 
                 case 'artistComplete':
                     this._detailsElements[msg.artistId].state = '';
+                    this._detailsElements[msg.artistId].lastUpdated = msg.lastUpdated;
                     break;
             }
         };
