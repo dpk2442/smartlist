@@ -205,7 +205,7 @@ class TestLoginCallback(object):
 
     async def test_bad_state(self, mock_session):
         resp = await smartlist.actions.login_callback(
-            None, None, mock_session, "home_route", "artists_route", None, None, None, None)
+            None, None, mock_session, "home_route", "artists_route", None, None, None, None, None)
         assert resp.status == 307
         assert resp.location == "home_route"
         assert mock_session.pop_flashes() == [dict(
@@ -213,7 +213,7 @@ class TestLoginCallback(object):
 
     async def test_error(self, mock_session):
         resp = await smartlist.actions.login_callback(
-            None, None, mock_session, "home_route", "artists_route", None, "state", "error", None)
+            None, None, mock_session, "home_route", "artists_route", None, None, "state", "error", None)
         assert resp.status == 307
         assert resp.location == "home_route"
         assert mock_session.pop_flashes() == [dict(
@@ -221,7 +221,7 @@ class TestLoginCallback(object):
 
     async def test_missing_code(self, mock_session):
         resp = await smartlist.actions.login_callback(
-            None, None, mock_session, "home_route", "artists_route", None, "state", None, None)
+            None, None, mock_session, "home_route", "artists_route", None, None, "state", None, None)
         assert resp.status == 307
         assert resp.location == "home_route"
         assert mock_session.pop_flashes() == [dict(
@@ -229,7 +229,7 @@ class TestLoginCallback(object):
 
     async def test_success(self, monkeypatch, mock_session, mock_client_session_constructor):
         mock_config = unittest.mock.Mock()
-        mock_config.get.side_effect = ["client_id", "client_secret", "http://callback_base_url"]
+        mock_config.get.side_effect = ["client_id", "client_secret", "http://callback_base_url", ""]
 
         mock_db = unittest.mock.Mock()
 
@@ -257,7 +257,7 @@ class TestLoginCallback(object):
         resp = await smartlist.actions.login_callback(
             mock_config, mock_db, mock_session,
             "home_route", "artists_route", "login_callback_route",
-            "state", None, "code")
+            None, "state", None, "code")
 
         assert resp.status == 307
         assert resp.location == "artists_route"
@@ -265,6 +265,7 @@ class TestLoginCallback(object):
             unittest.mock.call("auth", "client_id"),
             unittest.mock.call("auth", "client_secret"),
             unittest.mock.call("auth", "callback_base_url"),
+            unittest.mock.call("auth", "allowed_users", fallback=""),
         ))
         mock_client_session_constructor.assert_called_once_with()
         mock_client_session.post.assert_called_once_with(
@@ -292,6 +293,67 @@ class TestLoginCallback(object):
         mock_db.upsert_user.assert_called_once_with("spotify:user:user_id", "refresh_token")
         mock_datetime_datetime.now.assert_called_once_with(datetime.timezone.utc)
 
+    async def test_user_not_allowed(self, mock_session, mock_client_session_constructor):
+        mock_config = unittest.mock.Mock()
+        mock_config.get.side_effect = ["client_id", "client_secret",
+                                       "http://callback_base_url", "spotify:user:test_user"]
+
+        mock_db = unittest.mock.Mock()
+
+        mock_login_failed_route = unittest.mock.Mock()
+        mock_login_failed_route.url_for.return_value.with_query.return_value = "login_failed_route"
+
+        mock_client_session = mock_client_session_constructor.return_value.__aenter__.return_value
+
+        post_token_response = mock_client_session.post.return_value.__aenter__.return_value
+        post_token_response.status = 200
+        post_token_response.json.side_effect = (dict(
+            access_token="access_token",
+            expires_in=60,
+            refresh_token="refresh_token",
+        ),)
+
+        get_profile_response = mock_client_session.get.return_value.__aenter__.return_value
+        get_profile_response.status = 200
+        get_profile_response.json.side_effect = (dict(
+            uri="spotify:user:user_id",
+        ),)
+
+        resp = await smartlist.actions.login_callback(
+            mock_config, mock_db, mock_session,
+            "home_route", "artists_route", "login_callback_route",
+            mock_login_failed_route, "state", None, "code")
+
+        assert resp.status == 307
+        assert resp.location == "login_failed_route"
+        mock_config.get.assert_has_calls((
+            unittest.mock.call("auth", "client_id"),
+            unittest.mock.call("auth", "client_secret"),
+            unittest.mock.call("auth", "callback_base_url"),
+            unittest.mock.call("auth", "allowed_users", fallback=""),
+        ))
+        mock_client_session_constructor.assert_called_once_with()
+        mock_client_session.post.assert_called_once_with(
+            "https://accounts.spotify.com/api/token", data=dict(
+                grant_type="authorization_code",
+                client_id="client_id",
+                client_secret="client_secret",
+                code="code",
+                redirect_uri="http://callback_base_url/login_callback_route",
+            ))
+        mock_client_session.get.assert_called_once_with(
+            "https://api.spotify.com/v1/me", headers=dict(Authorization="Bearer access_token")
+        )
+        post_token_response.json.assert_called_once_with()
+        get_profile_response.json.assert_called_once_with()
+
+        assert mock_session._session == dict()
+        mock_db.upsert_user.assert_not_called()
+        mock_login_failed_route.assert_has_calls((
+            unittest.mock.call.url_for(),
+            unittest.mock.call.url_for().with_query(userId="spotify:user:user_id"),
+        ))
+
     async def test_post_fail(self, mock_session, mock_client_session_constructor):
         mock_config = unittest.mock.Mock()
         mock_config.get.side_effect = ["client_id", "client_secret", "http://callback_base_url"]
@@ -304,7 +366,7 @@ class TestLoginCallback(object):
         resp = await smartlist.actions.login_callback(
             mock_config, None, mock_session,
             "home_route", "artists_route", "login_callback_route",
-            "state", None, "code")
+            None, "state", None, "code")
 
         assert resp.status == 307
         assert resp.location == "home_route"
@@ -336,7 +398,8 @@ class TestLoginCallback(object):
         post_token_response = mock_client_session.post.return_value.__aenter__.return_value
         post_token_response.status = 200
         post_token_response.json.side_effect = (dict(
-            access_token="access_token"
+            access_token="access_token",
+            expires_in=60,
         ),)
 
         get_profile_response = mock_client_session.get.return_value.__aenter__.return_value
@@ -345,7 +408,7 @@ class TestLoginCallback(object):
         resp = await smartlist.actions.login_callback(
             mock_config, None, mock_session,
             "home_route", "artists_route", "login_callback_route",
-            "state", None, "code")
+            None, "state", None, "code")
 
         assert resp.status == 307
         assert resp.location == "home_route"

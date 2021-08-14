@@ -80,9 +80,18 @@ async def login_callback(request: aiohttp.web.Request):
         str(request.app.router["home"].url_for()),
         str(request.app.router["artists"].url_for()),
         str(request.app.router["login_callback"].url_for()),
+        request.app.router["login_failed"],
         request.query.get("state", None),
         request.query.get("error", None),
         request.query.get("code", None),
+    )
+
+
+@routes.get("/login_failed", name="login_failed")
+@aiohttp_jinja2.template("login_failed.html")
+def login_failed(request: aiohttp.web.Request):
+    return dict(
+        user_id=request.query["userId"],
     )
 
 

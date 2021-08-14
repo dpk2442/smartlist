@@ -108,6 +108,7 @@ async def login_callback(
         session: smartlist.session.Session,
         home_route: str, artists_route: str,
         login_callback_route: str,
+        login_failed_route: aiohttp.web.AbstractResource,
         state: str, error: str, code: str):
     session_state = session.auth_state
     del session.auth_state
@@ -143,6 +144,8 @@ async def login_callback(
                 return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
             auth_data = await resp.json()
+            expiration_time = datetime.datetime.now(datetime.timezone.utc)
+            expiration_time += datetime.timedelta(seconds=auth_data["expires_in"])
 
         headers = dict(
             Authorization="Bearer " + auth_data["access_token"],
@@ -155,12 +158,17 @@ async def login_callback(
 
             profile_data = await resp.json()
 
-        now = datetime.datetime.now(datetime.timezone.utc)
-        now += datetime.timedelta(seconds=auth_data["expires_in"])
+        allowed_users = list(filter(lambda s: s != "", config.get(
+            "auth", "allowed_users", fallback="").split(",")))
+        if len(allowed_users) > 0:
+            if profile_data["uri"] not in allowed_users:
+                return aiohttp.web.HTTPTemporaryRedirect(
+                    login_failed_route.url_for().with_query(userId=profile_data["uri"]))
+
         session.user_info = dict(
             user_id=profile_data["uri"],
             access_token=auth_data["access_token"],
-            access_token_expiry=now.isoformat(),
+            access_token_expiry=expiration_time.isoformat(),
         )
         db.upsert_user(profile_data["uri"], auth_data["refresh_token"])
 
