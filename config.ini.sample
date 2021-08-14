@@ -1,0 +1,19 @@
+[web]
+host = 127.0.0.1
+port = 7578
+
+[auth]
+callback_base_url = <auth_callback_base_url>
+client_id = <client_id>
+client_secret = <client_secret>
+; allowed_users = <comma_separated_list_of_users>
+
+[session]
+secret_key = <secret_key_for_session_cookies>
+
+[db]
+path = <path_to_sqlite_db_file>
+
+[playlist]
+name_template = SmartList: {name}
+description_template = An automatic playlist for "{name}" created by SmartList
