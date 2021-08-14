@@ -213,7 +213,8 @@ class TestLoginCallback(object):
 
     async def test_error(self, mock_session):
         resp = await smartlist.actions.login_callback(
-            None, None, mock_session, "home_route", "artists_route", None, None, "state", "error", None)
+            None, None, mock_session, "home_route", "artists_route",
+            None, None, "state", "error", None)
         assert resp.status == 307
         assert resp.location == "home_route"
         assert mock_session.pop_flashes() == [dict(
@@ -221,7 +222,8 @@ class TestLoginCallback(object):
 
     async def test_missing_code(self, mock_session):
         resp = await smartlist.actions.login_callback(
-            None, None, mock_session, "home_route", "artists_route", None, None, "state", None, None)
+            None, None, mock_session, "home_route", "artists_route",
+            None, None, "state", None, None)
         assert resp.status == 307
         assert resp.location == "home_route"
         assert mock_session.pop_flashes() == [dict(
