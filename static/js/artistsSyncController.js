@@ -11,7 +11,7 @@ class ArtistsSyncController extends HTMLElement {
         `;
 
         this._csrfToken = this.getAttribute('csrf-token');
-        this._syncUrl = window.location.protocol === 'https' ? 'wss://' : 'ws://';
+        this._syncUrl = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         this._syncUrl += window.location.host + this.getAttribute('sync-url');
 
         this._syncButton = shadowRoot.querySelector('#sync');
