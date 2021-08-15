@@ -37,11 +37,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Build and push Docker image
-        run: |
-          docker buildx build \
-            --platform ${TARGET_PLATFORMS} \
-            --tag ${{ steps.meta.outputs.tags }} \
-            --file Dockerfile \
-            --push \
-            .
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          platforms: ${{ env.TARGET_PLATFORMS }}
+          tags: ${{ steps.meta.outputs.tags }}
+          push: true
