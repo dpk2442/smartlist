@@ -2,6 +2,7 @@ import base64
 import configparser
 import logging
 import os
+import sys
 
 import aiohttp
 import aiohttp.web
@@ -51,7 +52,7 @@ def main():
     files_read = config.read(os.path.realpath(os.path.join(root_path, "config.ini")))
     if (len(files_read) == 0):
         logger.error("No config file found")
-        os.exit(1)
+        sys.exit(1)
     else:
         logger.info("Loaded config from {}".format(",".join(files_read)))
 
