@@ -432,6 +432,7 @@ class TestLoginCallback(object):
             "https://api.spotify.com/v1/me", headers=dict(Authorization="Bearer access_token")
         )
         post_token_response.json.assert_called_once_with()
+        get_profile_response.text.assert_called_once_with()
         get_profile_response.json.assert_not_called()
         assert mock_session.pop_flashes() == [dict(
             type="error", msg="Encountered an error logging in.")]

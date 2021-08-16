@@ -152,7 +152,8 @@ async def login_callback(
         )
         async with client_session.get("https://api.spotify.com/v1/me", headers=headers) as resp:
             if resp.status != 200:
-                logger.error("Error getting profile, received status {}".format(resp.status))
+                payload = await resp.text()
+                logger.error("Error getting profile, received {}: {}".format(resp.status, payload))
                 session.add_flash(dict(type="error", msg="Encountered an error logging in."))
                 return aiohttp.web.HTTPTemporaryRedirect(home_route)
 
